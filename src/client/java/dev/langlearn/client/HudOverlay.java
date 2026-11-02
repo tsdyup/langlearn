@@ -43,7 +43,7 @@ public final class HudOverlay {
 		w = Math.max(w, font.width(header) + font.width(secs) + 26);
 		if (p.roman != null) w = Math.max(w, 34 + font.width(p.roman) + 10);
 		if (p.own != null) w = Math.max(w, 34 + font.width("= " + p.own) + 10);
-		w = Math.max(w, font.width(status) + 20);
+		w = Math.max(w, font.width(status) + 20 + (p.voice ? 36 : 0));
 		w = Math.min(w, g.guiWidth() - 8);
 
 		int lines = 1 + (p.roman != null ? 1 : 0) + (p.own != null ? 1 : 0);
@@ -88,6 +88,12 @@ public final class HudOverlay {
 		g.fill(barX, barY, barX + filled, barY + 3, p.ticksLeft < 60 ? RED : ACCENT);
 
 		g.text(font, status, x + 8, barY + 6, GREY);
+		if (p.voice) {
+			// microphone level: if this never moves while you talk, the wrong mic is selected or it's muted
+			int lvlW = 30, lvlX = x + w - 8 - lvlW, lvlY = barY + 8;
+			g.fill(lvlX, lvlY, lvlX + lvlW, lvlY + 4, 0x60FFFFFF);
+			g.fill(lvlX, lvlY, lvlX + (int) (lvlW * SpeechEngine.micLevel()), lvlY + 4, GREEN);
+		}
 		return y + h;
 	}
 
@@ -103,7 +109,7 @@ public final class HudOverlay {
 	}
 
 	private static String statusLine(PromptManager.Prompt p) {
-		String heard = p.lastHeard.isEmpty() ? "" : "  heard: \"" + p.lastHeard + "\"  best " + p.best + "%";
+		String heard = p.lastHeard.isEmpty() ? "" : "  heard: " + p.lastHeard + "  (best " + Math.max(0, p.bestShown) + "%)";
 		if (p.voice && p.typing) return "listening... or type it in chat" + heard;
 		if (p.voice) return "listening..." + heard;
 		String why = "";
