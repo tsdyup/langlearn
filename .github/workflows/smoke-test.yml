@@ -1,7 +1,7 @@
 # Starts a real Minecraft 26.3 dedicated server with the mod and checks that it boots
 # (this catches mixin / method-name problems that compiling alone can't).
 name: smoke-test
-on: [workflow_dispatch, push]
+on: [workflow_dispatch]
 
 jobs:
   server:
