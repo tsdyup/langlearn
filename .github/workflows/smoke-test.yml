@@ -1,0 +1,33 @@
+# Starts a real Minecraft 26.3 dedicated server with the mod and checks that it boots
+# (this catches mixin / method-name problems that compiling alone can't).
+name: smoke-test
+on: [workflow_dispatch, push]
+
+jobs:
+  server:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'microsoft'
+      - run: chmod +x ./gradlew
+      - name: start server for up to 4 minutes
+        run: |
+          mkdir -p run && echo "eula=true" > run/eula.txt
+          printf "online-mode=false\nlevel-type=minecraft\\:flat\n" > run/server.properties
+          (echo "stop" | timeout 240 ./gradlew runServer --args="nogui" > server.log 2>&1) || true
+          grep -E "Done \(|ERROR|Mixin|langlearn|Exception" server.log | head -60
+          grep -q "Done (" server.log
+      - name: show ItemEntity methods
+        if: always()
+        run: |
+          JAR=$(find ~/.gradle .gradle -name "minecraft-*.jar" 2>/dev/null | grep -v sources | head -5)
+          echo "$JAR"
+          for j in $JAR; do javap -cp "$j" -p net.minecraft.world.entity.item.ItemEntity 2>/dev/null | grep -i touch && break; done
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: server-log
+          path: server.log
