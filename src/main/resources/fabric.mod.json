@@ -1,0 +1,30 @@
+{
+	"schemaVersion": 1,
+	"id": "langlearn",
+	"version": "${version}",
+	"name": "Language Learner",
+	"description": "Learn any language Minecraft has: say the name of every item you pick up, or lose it.",
+	"authors": [
+		"ofamandarin"
+	],
+	"license": "MIT",
+	"icon": "assets/langlearn/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"dev.langlearn.LangLearn"
+		],
+		"client": [
+			"dev.langlearn.client.LangLearnClient"
+		]
+	},
+	"mixins": [
+		"langlearn.mixins.json"
+	],
+	"depends": {
+		"fabricloader": ">=0.20.1",
+		"minecraft": "~26.3",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}
