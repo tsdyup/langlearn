@@ -7,24 +7,47 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
-      - run: sudo apt-get update -qq && sudo apt-get install -y -qq espeak-ng ffmpeg > /dev/null
-      - run: pip install vosk
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq espeak-ng ffmpeg jq > /dev/null
+      - run: pip install -q vosk
+      - name: Minecraft ru_ru / zh_cn item names
+        run: |
+          V=$(curl -s https://piston-meta.mojang.com/mc/game/version_manifest_v2.json | jq -r '.versions[]|select(.id=="26.3")|.url')
+          AI=$(curl -s "$V" | jq -r '.assetIndex.url')
+          curl -s "$AI" > index.json
+          for L in ru_ru zh_cn; do
+            H=$(jq -r ".objects[\"minecraft/lang/$L.json\"].hash" index.json)
+            curl -s "https://resources.download.minecraft.net/${H:0:2}/$H" > $L.json
+            jq '[to_entries[]|select(.key|test("^(item|block)\\.minecraft\\.[a-z0-9_]+$"))|.value|select(test("%")|not)]' $L.json > names_$L.json
+            echo "$L names: $(jq length names_$L.json)"
+          done
       - name: Russian
         run: |
           curl -sSL -o m.zip https://alphacephei.com/vosk/models/vosk-model-small-ru-0.22.zip && unzip -q m.zip && rm m.zip
-          mkdir -p wav_ru
-          for w in палка книга "алмазный меч" "железный слиток" яблоко молоко; do
-            for s in 120 170; do espeak-ng -v ru -s $s "$w" -w t.wav; ffmpeg -loglevel error -y -i t.wav -ar 16000 -ac 1 "wav_ru/${w// /_}_$s.wav"; done
+          python tools/fst_syms.py vosk-model-small-ru-0.22/graph/Gr.fst ru_words.txt
+          for w in палка книга; do grep -qx "$w" ru_words.txt && echo "$w in Gr.fst vocab" || echo "$w MISSING"; done
+          mkdir -p wav
+          for w in палка книга "алмазный меч" яблоко; do
+            espeak-ng -v ru -s 140 "$w" -w t.wav
+            ffmpeg -loglevel error -y -i t.wav -ar 16000 -ac 1 "wav/${w// /_}_norm_x.wav"
+            ffmpeg -loglevel error -y -i t.wav -ar 16000 -ac 1 -af "volume=0.03" "wav/${w// /_}_quiet_x.wav"
           done
-          python tools/vosk_test.py vosk-model-small-ru-0.22 wav_ru '["палка","книга","алмазный меч","железный слиток","яблоко","молоко","камень","доска","дубовые доски","лук"]'
-      - name: Chinese
+          python tools/agc_test.py vosk-model-small-ru-0.22 wav names_ru_ru.json
+      - name: Chinese vocab
         run: |
           curl -sSL -o m.zip https://alphacephei.com/vosk/models/vosk-model-small-cn-0.22.zip && unzip -q m.zip && rm m.zip
-          mkdir -p wav_cn
-          for w in 木棍 书 钻石剑 苹果 面包; do espeak-ng -v cmn "$w" -w t.wav; ffmpeg -loglevel error -y -i t.wav -ar 16000 -ac 1 "wav_cn/$w.wav"; done
-          python tools/vosk_test.py vosk-model-small-cn-0.22 wav_cn '["木棍","书","钻石 剑","苹果","面包","[unk]"]'
-      - name: Japanese
-        run: |
-          curl -sSL -o m.zip https://alphacephei.com/vosk/models/vosk-model-small-ja-0.22.zip && unzip -q m.zip && rm m.zip
-          ls vosk-model-small-ja-0.22 vosk-model-small-ja-0.22/graph || true
-          head -c 600 vosk-model-small-ja-0.22/graph/words.txt || true
+          python tools/fst_syms.py vosk-model-small-cn-0.22/graph/Gr.fst cn_words.txt
+          for w in 木棍 木 棍 书 钻石 剑 苹果 面包 钻石剑; do grep -qx "$w" cn_words.txt && echo "$w yes" || echo "$w NO"; done
+          python - <<'P'
+          import json
+          v=set(open("cn_words.txt",encoding="utf-8").read().split("\n"))
+          names=json.load(open("names_zh_cn.json",encoding="utf-8"))
+          def seg(t):
+              n=len(t); best=[None]*(n+1); best[0]=[]
+              for i in range(n):
+                  if best[i] is None: continue
+                  for j in range(i+1,min(n,i+8)+1):
+                      if t[i:j] in v and (best[j] is None or len(best[i])+1<len(best[j])): best[j]=best[i]+[t[i:j]]
+              return best[n]
+          ok=sum(1 for x in names if seg(x)); print("zh_cn names segmentable:",ok,"/",len(names))
+          print([ (x,seg(x)) for x in names[:15]])
+          P
