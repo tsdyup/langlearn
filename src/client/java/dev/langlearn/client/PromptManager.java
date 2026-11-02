@@ -36,6 +36,8 @@ public final class PromptManager {
 		/** per character of {@link #display}: 1 right, -1 wrong, 0 neutral; null until you've said something */
 		public int[] colors;
 		public boolean grammar;
+		/** best score among results that were shown (used for the letter colours) */
+		public int bestShown = -1;
 		/** picked up from the ground (short timer) vs chest/crafting/etc. (long timer) */
 		public boolean ground;
 	}
@@ -169,11 +171,20 @@ public final class PromptManager {
 		String lang = Config.get().language;
 		SpeechEngine.Heard h;
 		while ((h = SpeechEngine.heard.poll()) != null) {
-			// show the item-name recognizer's answer when it exists, it's a real word instead of gibberish
-			if (h.constrained() || !p.grammar) p.lastHeard = readable(lang, h.text());
+			// with the item-name recognizer active, only its answers are shown and coloured:
+			// the free recognizer mostly produces gibberish for single words
+			boolean shown = h.constrained() || !p.grammar;
+			if (h.text().equals(SpeechEngine.UNSURE)) {
+				if (shown) p.lastHeard = "(not sure, say it again)";
+				continue;
+			}
 			int s = Matcher.score(lang, p.word, h.text());
-			if (s > p.best || p.colors == null) {
-				p.colors = Matcher.letterColors(lang, p.display, h.text());
+			if (shown) {
+				p.lastHeard = readable(lang, h.text());
+				if (s >= p.bestShown || p.colors == null) {
+					p.colors = Matcher.letterColors(lang, p.display, h.text());
+					p.bestShown = s;
+				}
 			}
 			p.best = Math.max(p.best, s);
 			if (s >= Config.get().threshold) {
@@ -195,7 +206,10 @@ public final class PromptManager {
 		String lang = Config.get().language;
 		int s = Matcher.score(lang, p.word, message);
 		p.lastHeard = readable(lang, message);
-		if (s > p.best || p.colors == null) p.colors = Matcher.letterColors(lang, p.display, message);
+		if (s >= p.bestShown || p.colors == null) {
+			p.colors = Matcher.letterColors(lang, p.display, message);
+			p.bestShown = s;
+		}
 		p.best = Math.max(p.best, s);
 		if (s >= Config.get().threshold) finish(true, s);
 		else play(SoundEvents.NOTE_BLOCK_BASS, 0.8f);

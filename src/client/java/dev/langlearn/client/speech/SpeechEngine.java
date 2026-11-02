@@ -225,19 +225,61 @@ public final class SpeechEngine {
 
 	static void loadVocabulary(Path modelRoot) {
 		vocab = null;
-		Path words = modelRoot.resolve("graph").resolve("words.txt");
-		if (!Files.isRegularFile(words)) return;
-		try (Stream<String> lines = Files.lines(words, java.nio.charset.StandardCharsets.UTF_8)) {
-			java.util.Set<String> set = new java.util.HashSet<>();
-			lines.forEach(l -> {
-				int sp = l.indexOf(' ');
-				String w = sp > 0 ? l.substring(0, sp) : l;
-				if (!w.isEmpty() && !w.startsWith("<") && !w.startsWith("#")) set.add(w);
-			});
-			vocab = set;
-			LangLearn.LOGGER.info("Speech vocabulary: {} words", set.size());
+		try {
+			Path words = modelRoot.resolve("graph").resolve("words.txt");
+			java.util.Set<String> set = null;
+			if (Files.isRegularFile(words)) {
+				set = new java.util.HashSet<>();
+				try (Stream<String> lines = Files.lines(words, java.nio.charset.StandardCharsets.UTF_8)) {
+					for (String l : (Iterable<String>) lines::iterator) {
+						int sp = l.indexOf(' ');
+						set.add(sp > 0 ? l.substring(0, sp) : l);
+					}
+				}
+			} else {
+				Path gr = modelRoot.resolve("graph").resolve("Gr.fst");
+				if (Files.isRegularFile(gr)) set = FstSymbols.read(gr);
+			}
+			if (set != null) {
+				set.removeIf(w -> w.isEmpty() || w.startsWith("<") || w.startsWith("#") || w.startsWith("!") || w.equals("[unk]"));
+				vocab = set;
+				LangLearn.LOGGER.info("Speech vocabulary: {} words", set.size());
+			}
 		} catch (Exception e) {
 			LangLearn.LOGGER.warn("Could not read model vocabulary", e);
+		}
+	}
+
+	/** Current microphone loudness 0..1 (before the automatic boost), for the level bar on the card. */
+	public static float micLevel() {
+		return micLevel;
+	}
+
+	private static volatile float micLevel = 0;
+
+	/**
+	 * Automatic gain: quiet microphones made the recognizer hear nothing. We track the recent peak and
+	 * scale the audio so speech reaches about half of full volume (at most 20x louder).
+	 */
+	private static double agcPeak = 3000;
+
+	private static void applyGain(byte[] buf, int n) {
+		int peak = 1;
+		long sumSq = 0;
+		for (int i = 0; i + 1 < n; i += 2) {
+			int v = (short) ((buf[i] & 0xFF) | (buf[i + 1] << 8));
+			peak = Math.max(peak, Math.abs(v));
+			sumSq += (long) v * v;
+		}
+		int samples = Math.max(1, n / 2);
+		micLevel = (float) Math.min(1.0, Math.sqrt((double) sumSq / samples) / 6000.0);
+		agcPeak = Math.max(peak, agcPeak * 0.995);
+		double gain = Math.min(20.0, 16000.0 / agcPeak);
+		for (int i = 0; i + 1 < n; i += 2) {
+			int v = (short) ((buf[i] & 0xFF) | (buf[i + 1] << 8));
+			int g = (int) Math.max(-32768, Math.min(32767, Math.round(v * gain)));
+			buf[i] = (byte) g;
+			buf[i + 1] = (byte) (g >> 8);
 		}
 	}
 
@@ -276,6 +318,7 @@ public final class SpeechEngine {
 					closeQuietly(constrained);
 					free = null;
 					constrained = null;
+					micLevel = 0;
 					Thread.sleep(30);
 					continue;
 				}
@@ -311,6 +354,7 @@ public final class SpeechEngine {
 				}
 				int n = line.read(buf, 0, buf.length);
 				if (n <= 0) continue;
+				applyGain(buf, n);
 				if (free.acceptWaveForm(buf, n)) push(free.getResult(), "text", false);
 				else push(free.getPartialResult(), "partial", false);
 				if (constrained != null) {
@@ -334,6 +378,9 @@ public final class SpeechEngine {
 		}
 	}
 
+	/** Marker text for "heard something, but not an item name". */
+	public static final String UNSURE = "?";
+
 	private static volatile String lastFree = "";
 	private static volatile String lastConstrained = "";
 
@@ -341,8 +388,13 @@ public final class SpeechEngine {
 		try {
 			JsonObject o = JsonParser.parseString(json).getAsJsonObject();
 			if (!o.has(field)) return;
-			String t = o.get(field).getAsString().replace("[unk]", "").replaceAll("\\s+", " ").trim();
-			if (t.isEmpty()) return;
+			String raw = o.get(field).getAsString();
+			String t = raw.replace("[unk]", "").replaceAll("\\s+", " ").trim();
+			if (t.isEmpty()) {
+				// the item-name recognizer heard speech but it wasn't any item name
+				if (isConstrained && raw.contains("[unk]")) t = UNSURE;
+				else return;
+			}
 			if (isConstrained) {
 				if (t.equals(lastConstrained)) return;
 				lastConstrained = t;
