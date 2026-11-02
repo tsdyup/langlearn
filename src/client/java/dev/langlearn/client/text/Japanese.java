@@ -44,6 +44,17 @@ public final class Japanese {
 		return String.join(" ", words);
 	}
 
+	/** The words of the text separated by spaces, e.g. "ダイヤモンドの剣" -> "ダイヤモンド の 剣". */
+	public static String surfaces(String text) {
+		Tokenizer tk = tokenizer();
+		if (tk == null) return text;
+		List<String> words = new ArrayList<>();
+		for (Token t : tk.tokenize(text)) {
+			if (!t.getSurface().isBlank()) words.add(t.getSurface());
+		}
+		return String.join(" ", words);
+	}
+
 	public static String toRomaji(String text) {
 		return Kana.toRomaji(reading(text)).replaceAll("\\s+", " ").trim();
 	}

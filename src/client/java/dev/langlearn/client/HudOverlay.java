@@ -63,12 +63,17 @@ public final class HudOverlay {
 		g.pose().pushMatrix();
 		g.pose().translate(x + 30, rowY + 2);
 		g.pose().scale(WORD_SCALE);
-		g.text(font, p.word, 0, 0, WORD);
+		if (p.roman == null && p.colors != null) {
+			drawColored(g, font, p.word, p.colors, 0, 0, WORD); // Latin script: colour the word itself
+		} else {
+			g.text(font, p.word, 0, 0, WORD);
+		}
 		g.pose().popMatrix();
 
 		int ty = rowY + 17;
 		if (p.roman != null) {
-			g.text(font, p.roman, x + 30, ty, ROMAN);
+			if (p.colors != null) drawColored(g, font, p.roman, p.colors, x + 30, ty, ROMAN);
+			else g.text(font, p.roman, x + 30, ty, ROMAN);
 			ty += 11;
 		}
 		if (p.own != null) {
@@ -86,8 +91,19 @@ public final class HudOverlay {
 		return y + h;
 	}
 
+	/** Draws text letter by letter: green = you said it right, red = wrong or missing. */
+	private static void drawColored(GuiGraphicsExtractor g, Font font, String text, int[] colors, int x, int y, int neutral) {
+		int cx = x;
+		for (int i = 0; i < text.length(); i++) {
+			String ch = String.valueOf(text.charAt(i));
+			int c = i < colors.length ? colors[i] : 0;
+			g.text(font, ch, cx, y, c > 0 ? GREEN : c < 0 ? RED : neutral);
+			cx += font.width(ch);
+		}
+	}
+
 	private static String statusLine(PromptManager.Prompt p) {
-		String heard = p.lastHeard.isEmpty() ? "" : "  \"" + p.lastHeard + "\" " + p.best + "%";
+		String heard = p.lastHeard.isEmpty() ? "" : "  heard: \"" + p.lastHeard + "\"  best " + p.best + "%";
 		if (p.voice && p.typing) return "listening... or type it in chat" + heard;
 		if (p.voice) return "listening..." + heard;
 		String why = "";

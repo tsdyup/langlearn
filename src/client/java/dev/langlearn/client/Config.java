@@ -27,8 +27,11 @@ public final class Config {
 	public int threshold = 80;
 	/** auto = voice when the speech model is ready, typing otherwise. voice / typing force one. */
 	public String mode = "auto";
-	/** Tell the recognizer which word to expect. Makes it easier (more forgiving). */
-	public boolean grammarAssist = false;
+	/**
+	 * Also run a recognizer that may only answer with Minecraft item names. Much more accurate than
+	 * free recognition for single words, and what you said shows up as a real word instead of gibberish.
+	 */
+	public boolean itemGrammar = true;
 	/** Also show the item's name in your own game language under the word. */
 	public boolean showOwnLanguage = true;
 

@@ -55,9 +55,9 @@ public final class Commands {
 				.then(ClientCommands.literal("grammar")
 						.then(ClientCommands.argument("on", BoolArgumentType.bool())
 								.executes(ctx -> {
-									Config.get().grammarAssist = BoolArgumentType.getBool(ctx, "on");
+									Config.get().itemGrammar = BoolArgumentType.getBool(ctx, "on");
 									Config.save();
-									return ok(ctx, "Grammar assist " + (Config.get().grammarAssist ? "on (easier)" : "off"));
+									return ok(ctx, "Item-name recognizer " + (Config.get().itemGrammar ? "on" : "off (free recognition only)"));
 								})))
 				.then(ClientCommands.literal("on").executes(ctx -> toggle(ctx, true)))
 				.then(ClientCommands.literal("off").executes(ctx -> toggle(ctx, false)))
@@ -97,7 +97,7 @@ public final class Commands {
 		ok(ctx, "Learning " + Translations.languageName() + " (" + c.language + ")" + (c.enabled ? "" : " [OFF]"));
 		ok(ctx, "Words unlocked: " + Progress.unlockedCount() + " / " + Progress.seenCount() + " seen");
 		ok(ctx, "Timer " + c.timerSeconds + "s (ground) / " + c.timerOtherSeconds + "s (chests, crafting...), needs " + c.threshold + "%, mode " + c.mode
-				+ (c.grammarAssist ? ", grammar assist on" : ""));
+				+ (c.itemGrammar ? "" : ", item-name recognizer off"));
 		String voice = VoskModels.forLanguage(c.language) == null
 				? "no voice model for this language (typing only)"
 				: SpeechEngine.status();

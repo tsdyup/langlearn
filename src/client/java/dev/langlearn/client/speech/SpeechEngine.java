@@ -51,7 +51,7 @@ public final class SpeechEngine {
 	private static volatile String grammar = null;
 	private static volatile boolean micBroken = false;
 	/** Text recognized during the current session (partial and final results). */
-	public static final ConcurrentLinkedQueue<String> heard = new ConcurrentLinkedQueue<>();
+	public static final ConcurrentLinkedQueue<Heard> heard = new ConcurrentLinkedQueue<>();
 
 	private static Thread micThread;
 	private static Thread prepareThread;
@@ -100,6 +100,7 @@ public final class SpeechEngine {
 				status = "Loading speech model...";
 				LibVosk.setLogLevel(LogLevel.WARNINGS);
 				Model m = new Model(dir.toString());
+				loadVocabulary(dir);
 				if (!lang.equals(modelLang)) {
 					m.close();
 					return;
@@ -192,12 +193,19 @@ public final class SpeechEngine {
 		}
 	}
 
-	/** Start listening for a new prompt. {@code expected} (optional) enables grammar assist. */
-	public static void startListening(String expectedPhrase) {
+	/** A recognized piece of speech. {@code constrained} = came from the item-name-only recognizer. */
+	public record Heard(String text, boolean constrained) {}
+
+	/**
+	 * Start listening for a new prompt.
+	 * @param grammarJson optional Vosk grammar (JSON list of phrases). When given, a second recognizer
+	 *                    that can only answer with those phrases runs next to the free one.
+	 */
+	public static void startListening(String grammarJson) {
 		heard.clear();
-		last = "";
-		grammar = expectedPhrase == null ? null
-				: "[\"" + expectedPhrase.replace("\\", "").replace("\"", "") + "\", \"[unk]\"]";
+		lastFree = "";
+		lastConstrained = "";
+		grammar = grammarJson;
 		session++;
 		listening = true;
 		ensureMicThread();
@@ -208,6 +216,31 @@ public final class SpeechEngine {
 		session++;
 	}
 
+	/** Words the current model knows (from graph/words.txt), or null if unknown. */
+	public static java.util.Set<String> vocabulary() {
+		return vocab;
+	}
+
+	private static volatile java.util.Set<String> vocab = null;
+
+	static void loadVocabulary(Path modelRoot) {
+		vocab = null;
+		Path words = modelRoot.resolve("graph").resolve("words.txt");
+		if (!Files.isRegularFile(words)) return;
+		try (Stream<String> lines = Files.lines(words, java.nio.charset.StandardCharsets.UTF_8)) {
+			java.util.Set<String> set = new java.util.HashSet<>();
+			lines.forEach(l -> {
+				int sp = l.indexOf(' ');
+				String w = sp > 0 ? l.substring(0, sp) : l;
+				if (!w.isEmpty() && !w.startsWith("<") && !w.startsWith("#")) set.add(w);
+			});
+			vocab = set;
+			LangLearn.LOGGER.info("Speech vocabulary: {} words", set.size());
+		} catch (Exception e) {
+			LangLearn.LOGGER.warn("Could not read model vocabulary", e);
+		}
+	}
+
 	private static synchronized void ensureMicThread() {
 		if (micThread != null && micThread.isAlive()) return;
 		micThread = new Thread(SpeechEngine::micLoop, "LangLearn-Microphone");
@@ -215,10 +248,19 @@ public final class SpeechEngine {
 		micThread.start();
 	}
 
+	private static void closeQuietly(Recognizer r) {
+		if (r == null) return;
+		try {
+			r.close();
+		} catch (Throwable ignored) {
+		}
+	}
+
 	private static void micLoop() {
 		AudioFormat format = new AudioFormat(SAMPLE_RATE, 16, 1, true, false);
 		TargetDataLine line = null;
-		Recognizer rec = null;
+		Recognizer free = null;
+		Recognizer constrained = null;
 		int recSession = -1;
 		byte[] buf = new byte[3200]; // 0.1 s of audio
 		while (true) {
@@ -230,10 +272,10 @@ public final class SpeechEngine {
 						line.close();
 						line = null;
 					}
-					if (rec != null) {
-						rec.close();
-						rec = null;
-					}
+					closeQuietly(free);
+					closeQuietly(constrained);
+					free = null;
+					constrained = null;
 					Thread.sleep(30);
 					continue;
 				}
@@ -251,31 +293,38 @@ public final class SpeechEngine {
 						continue;
 					}
 				}
-				if (rec == null || recSession != session) {
-					if (rec != null) rec.close();
+				if (free == null || recSession != session) {
+					closeQuietly(free);
+					closeQuietly(constrained);
+					constrained = null;
+					free = new Recognizer(m, SAMPLE_RATE);
 					String g = grammar;
-					rec = g != null ? new Recognizer(m, SAMPLE_RATE, g) : new Recognizer(m, SAMPLE_RATE);
+					if (g != null) {
+						try {
+							constrained = new Recognizer(m, SAMPLE_RATE, g);
+						} catch (Throwable t) {
+							LangLearn.LOGGER.warn("Grammar recognizer failed, using free recognition only", t);
+						}
+					}
 					recSession = session;
 					line.flush(); // drop audio from before this prompt
 				}
 				int n = line.read(buf, 0, buf.length);
 				if (n <= 0) continue;
-				if (rec.acceptWaveForm(buf, n)) {
-					push(rec.getResult(), "text");
-				} else {
-					push(rec.getPartialResult(), "partial");
+				if (free.acceptWaveForm(buf, n)) push(free.getResult(), "text", false);
+				else push(free.getPartialResult(), "partial", false);
+				if (constrained != null) {
+					if (constrained.acceptWaveForm(buf, n)) push(constrained.getResult(), "text", true);
+					else push(constrained.getPartialResult(), "partial", true);
 				}
 			} catch (InterruptedException e) {
 				return;
 			} catch (Throwable t) {
 				LangLearn.LOGGER.error("Speech recognition error", t);
-				if (rec != null) {
-					try {
-						rec.close();
-					} catch (Throwable ignored) {
-					}
-					rec = null;
-				}
+				closeQuietly(free);
+				closeQuietly(constrained);
+				free = null;
+				constrained = null;
 				try {
 					Thread.sleep(500);
 				} catch (InterruptedException e) {
@@ -285,16 +334,23 @@ public final class SpeechEngine {
 		}
 	}
 
-	private static volatile String last = "";
+	private static volatile String lastFree = "";
+	private static volatile String lastConstrained = "";
 
-	private static void push(String json, String field) {
+	private static void push(String json, String field, boolean isConstrained) {
 		try {
 			JsonObject o = JsonParser.parseString(json).getAsJsonObject();
 			if (!o.has(field)) return;
-			String t = o.get(field).getAsString().replace("[unk]", "").trim();
-			if (t.isEmpty() || t.equals(last)) return;
-			last = t;
-			heard.add(t);
+			String t = o.get(field).getAsString().replace("[unk]", "").replaceAll("\\s+", " ").trim();
+			if (t.isEmpty()) return;
+			if (isConstrained) {
+				if (t.equals(lastConstrained)) return;
+				lastConstrained = t;
+			} else {
+				if (t.equals(lastFree)) return;
+				lastFree = t;
+			}
+			heard.add(new Heard(t, isConstrained));
 		} catch (Exception ignored) {
 		}
 	}

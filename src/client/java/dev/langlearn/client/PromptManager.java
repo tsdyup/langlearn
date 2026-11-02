@@ -1,7 +1,7 @@
 package dev.langlearn.client;
 
 import dev.langlearn.client.speech.SpeechEngine;
-import dev.langlearn.client.speech.VoskModels;
+import dev.langlearn.client.speech.Grammar;
 import dev.langlearn.client.text.Matcher;
 import dev.langlearn.client.text.Romanizer;
 import dev.langlearn.net.FailPayload;
@@ -13,7 +13,6 @@ import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.Locale;
 
 /** The game loop of the mod: queue of picked-up items, the active prompt, and the result popup. */
 public final class PromptManager {
@@ -32,6 +31,11 @@ public final class PromptManager {
 		public boolean voice;
 		public boolean typing;
 		public boolean test;
+		/** the text shown for letter feedback: the romanization, or the word itself for Latin scripts */
+		public String display;
+		/** per character of {@link #display}: 1 right, -1 wrong, 0 neutral; null until you've said something */
+		public int[] colors;
+		public boolean grammar;
 		/** picked up from the ground (short timer) vs chest/crafting/etc. (long timer) */
 		public boolean ground;
 	}
@@ -106,6 +110,7 @@ public final class PromptManager {
 		p.langName = Translations.languageName();
 		p.test = test;
 		p.ground = ground;
+		p.display = p.roman != null ? p.roman : word;
 		queue.add(p);
 	}
 
@@ -130,10 +135,16 @@ public final class PromptManager {
 		p.ticksLeft = p.totalTicks;
 		active = p;
 		if (p.voice) {
-			String expected = cfg.grammarAssist && !VoskModels.isCjk(cfg.language)
-					? p.word.toLowerCase(Locale.ROOT).replaceAll("[^\\p{L}\\p{N} ]", " ").replaceAll("\\s+", " ").trim()
-					: null;
-			SpeechEngine.startListening(expected);
+			String grammar = null;
+			if (cfg.itemGrammar) {
+				try {
+					grammar = Grammar.build(cfg.language, p.word);
+				} catch (Throwable t) {
+					grammar = null;
+				}
+			}
+			p.grammar = grammar != null;
+			SpeechEngine.startListening(grammar);
 		}
 		play(SoundEvents.NOTE_BLOCK_PLING, 1.4f);
 	}
@@ -156,10 +167,14 @@ public final class PromptManager {
 
 		Prompt p = active;
 		String lang = Config.get().language;
-		String h;
+		SpeechEngine.Heard h;
 		while ((h = SpeechEngine.heard.poll()) != null) {
-			p.lastHeard = h;
-			int s = Matcher.score(lang, p.word, h);
+			// show the item-name recognizer's answer when it exists, it's a real word instead of gibberish
+			if (h.constrained() || !p.grammar) p.lastHeard = readable(lang, h.text());
+			int s = Matcher.score(lang, p.word, h.text());
+			if (s > p.best || p.colors == null) {
+				p.colors = Matcher.letterColors(lang, p.display, h.text());
+			}
 			p.best = Math.max(p.best, s);
 			if (s >= Config.get().threshold) {
 				finish(true, s);
@@ -177,12 +192,20 @@ public final class PromptManager {
 	public static boolean onChat(String message) {
 		Prompt p = active;
 		if (p == null || !p.typing) return false;
-		int s = Matcher.score(Config.get().language, p.word, message);
-		p.lastHeard = message;
+		String lang = Config.get().language;
+		int s = Matcher.score(lang, p.word, message);
+		p.lastHeard = readable(lang, message);
+		if (s > p.best || p.colors == null) p.colors = Matcher.letterColors(lang, p.display, message);
 		p.best = Math.max(p.best, s);
 		if (s >= Config.get().threshold) finish(true, s);
 		else play(SoundEvents.NOTE_BLOCK_BASS, 0.8f);
 		return true;
+	}
+
+	/** What was heard, in Latin letters so you can read it even for Cyrillic/kanji/hanzi. */
+	private static String readable(String lang, String text) {
+		String r = Romanizer.display(lang, text);
+		return r != null ? r : text;
 	}
 
 	private static void finish(boolean success, int score) {

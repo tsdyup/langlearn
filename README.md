@@ -9,6 +9,7 @@ Every time an item goes into your inventory, a card pops up at the top of the sc
 - **Russian, Chinese and Japanese** (and any other non-Latin script) show the pronunciation under the word: *Алмазный меч → Almaznyy mech*, *钻石剑 → zuàn shí jiàn*, *ダイヤモンドの剣 → daiyamondo no ken*.
 - Offline speech recognition (Vosk). The free model for your language downloads once the first time (40–130 MB). Nothing is sent online after that.
 - Languages with no speech model use a typing fallback: type the word (or its romanization) in chat.
+- While you speak, the pronunciation line turns **green** for the letters you got right and **red** for the ones you missed. What it heard is shown in Latin letters.
 - Once you say a word correctly, it's **unlocked** and never asked again. Failed words show `NEVER LEARNED (0/x)`.
 
 ## 1. Build the jar
@@ -22,14 +23,14 @@ gradlew.bat build        (Windows)
 ./gradlew build          (Mac/Linux)
 ```
 
-The first build downloads Gradle, Minecraft and Fabric, so it takes a few minutes. The mod ends up at `build/libs/langlearn-0.1.0.jar`.
+The first build downloads Gradle, Minecraft and Fabric, so it takes a few minutes. The mod ends up at `build/libs/langlearn-0.2.0.jar`.
 
 **No JDK?** Push this folder to a GitHub repo. The included GitHub Action builds it automatically, and the jar appears under *Actions → latest run → Artifacts*.
 
 ## 2. Install
 
 1. Install **Fabric Loader 0.20.1+** for Minecraft **26.3**.
-2. Put `langlearn-0.1.0.jar` and **Fabric API** (0.165.0+26.3 or newer) in `.minecraft/mods`.
+2. Put `langlearn-0.2.0.jar` and **Fabric API** (0.165.0+26.3 or newer) in `.minecraft/mods`.
 3. Singleplayer works out of the box. For multiplayer, the server also needs the mod, because the server is what deletes the items.
 
 ## 3. Play
@@ -44,7 +45,7 @@ The first build downloads Gradle, Minecraft and Fabric, so it takes a few minute
 | `/langlearn timer other 20` | Seconds to answer for chests, crafting and everything else (3–60) |
 | `/langlearn threshold 80` | How accurate you must be, in % (default 80) |
 | `/langlearn mode auto\|typing\|both` | auto = voice if available, otherwise typing |
-| `/langlearn grammar true` | Easier mode: tells the recognizer which word to expect (not for Chinese or Japanese) |
+| `/langlearn grammar true\|false` | On by default: a second recognizer that can only answer with Minecraft item names, so it hears real words instead of gibberish |
 | `/langlearn on` / `off` | Pause the mod (your items are safe while it's off) |
 | `/langlearn reset` | Forget your progress for the current language |
 

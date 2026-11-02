@@ -46,6 +46,12 @@ public final class Romanizer {
 		return kana.equals(text) ? null : kana;
 	}
 
+	/** Runs an ICU transliterator if available, otherwise returns the text unchanged. */
+	public static String icuOrSame(String id, String text) {
+		String r = icu(id, text);
+		return r == null ? text : r;
+	}
+
 	private static String icu(String id, String text) {
 		if (ICU_MISSING.containsKey(id)) return null;
 		try {
@@ -66,6 +72,11 @@ public final class Romanizer {
 	public static String key(String lang, String text) {
 		String r = needsRomanization(text) ? romanize(lang, text) : text;
 		if (r == null) r = text;
+		return normalize(r);
+	}
+
+	/** Lowercase, strip accents/tones, keep only letters and digits. */
+	public static String normalize(String r) {
 		r = Normalizer.normalize(r.toLowerCase(Locale.ROOT), Normalizer.Form.NFD)
 				.replaceAll("\\p{M}", "")
 				.replace("'", "")

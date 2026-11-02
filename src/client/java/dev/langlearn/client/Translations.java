@@ -63,6 +63,26 @@ public final class Translations {
 		return true;
 	}
 
+	private static List<String> itemNames = null;
+	private static String itemNamesCode = null;
+
+	/** Every item and block name in the loaded language (used as "wrong answers" for the recognizer). */
+	public static synchronized List<String> itemNames() {
+		if (itemNames != null && loadedCode != null && loadedCode.equals(itemNamesCode)) return itemNames;
+		List<String> out = new ArrayList<>();
+		for (Map.Entry<String, String> e : strings.entrySet()) {
+			String k = e.getKey();
+			if (!(k.startsWith("item.minecraft.") || k.startsWith("block.minecraft."))) continue;
+			if (k.chars().filter(ch -> ch == '.').count() != 2) continue; // skip "item.minecraft.x.desc" etc.
+			String v = e.getValue();
+			if (v.isBlank() || v.contains("%") || v.length() > 40) continue;
+			out.add(v);
+		}
+		itemNames = out;
+		itemNamesCode = loadedCode;
+		return out;
+	}
+
 	public static synchronized String get(String key) {
 		return strings.get(key);
 	}
