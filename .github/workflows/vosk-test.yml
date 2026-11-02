@@ -1,0 +1,30 @@
+name: vosk-test
+on:
+  push:
+    branches: [experiments]
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq espeak-ng ffmpeg > /dev/null
+      - run: pip install vosk
+      - name: Russian
+        run: |
+          curl -sSL -o m.zip https://alphacephei.com/vosk/models/vosk-model-small-ru-0.22.zip && unzip -q m.zip && rm m.zip
+          mkdir -p wav_ru
+          for w in палка книга "алмазный меч" "железный слиток" яблоко молоко; do
+            for s in 120 170; do espeak-ng -v ru -s $s "$w" -w t.wav; ffmpeg -loglevel error -y -i t.wav -ar 16000 -ac 1 "wav_ru/${w// /_}_$s.wav"; done
+          done
+          python tools/vosk_test.py vosk-model-small-ru-0.22 wav_ru '["палка","книга","алмазный меч","железный слиток","яблоко","молоко","камень","доска","дубовые доски","лук"]'
+      - name: Chinese
+        run: |
+          curl -sSL -o m.zip https://alphacephei.com/vosk/models/vosk-model-small-cn-0.22.zip && unzip -q m.zip && rm m.zip
+          mkdir -p wav_cn
+          for w in 木棍 书 钻石剑 苹果 面包; do espeak-ng -v cmn "$w" -w t.wav; ffmpeg -loglevel error -y -i t.wav -ar 16000 -ac 1 "wav_cn/$w.wav"; done
+          python tools/vosk_test.py vosk-model-small-cn-0.22 wav_cn '["木棍","书","钻石 剑","苹果","面包","[unk]"]'
+      - name: Japanese
+        run: |
+          curl -sSL -o m.zip https://alphacephei.com/vosk/models/vosk-model-small-ja-0.22.zip && unzip -q m.zip && rm m.zip
+          ls vosk-model-small-ja-0.22 vosk-model-small-ja-0.22/graph || true
+          head -c 600 vosk-model-small-ja-0.22/graph/words.txt || true
