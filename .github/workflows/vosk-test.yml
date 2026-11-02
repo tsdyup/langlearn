@@ -3,23 +3,28 @@ on:
   push:
     branches: [experiments]
 jobs:
-  test:
+  audio:
     runs-on: ubuntu-24.04
+    steps:
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq espeak-ng ffmpeg > /dev/null
+      - run: |
+          mkdir wav
+          i=0; for w in палка книга "алмазный меч" яблоко; do i=$((i+1)); espeak-ng -v ru -s 140 "$w" -w t.wav; ffmpeg -loglevel error -y -i t.wav -ar 16000 -ac 1 -c:a pcm_s16le "wav/w$i.wav"; done
+      - uses: actions/upload-artifact@v7
+        with: { name: wav, path: wav }
+  windows:
+    needs: audio
+    runs-on: windows-latest
+    defaults: { run: { shell: bash } }
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-java@v5
         with: { java-version: '25', distribution: 'microsoft' }
-      - name: Java FstSymbols on the Russian and Chinese models
-        run: |
-          curl -sSL -o m.zip https://alphacephei.com/vosk/models/vosk-model-small-ru-0.22.zip && unzip -q m.zip && rm m.zip
-          curl -sSL -o m.zip https://alphacephei.com/vosk/models/vosk-model-small-cn-0.22.zip && unzip -q m.zip && rm m.zip
-          mkdir out && javac -d out src/client/java/dev/langlearn/client/speech/FstSymbols.java tools/javatest/dev/langlearn/client/speech/FstTest.java
-          java -cp out dev.langlearn.client.speech.FstTest vosk-model-small-ru-0.22/graph/Gr.fst палка книга алмазный
-          java -cp out dev.langlearn.client.speech.FstTest vosk-model-small-cn-0.22/graph/Gr.fst 钻石 剑 苹果
-      - name: Japanese words.txt format
-        run: |
-          curl -sSL -o m.zip https://alphacephei.com/vosk/models/vosk-model-small-ja-0.22.zip && unzip -q m.zip && rm m.zip
-          W=vosk-model-small-ja-0.22/graph/words.txt
-          wc -l $W
-          grep -E "^(ダイヤモンド|剣|パン|の|リンゴ|鉄|インゴット|チェスト|棒|本)[ +]" $W | head -20
-          grep -m5 "ダイヤ" $W; grep -m5 "^本" $W; shuf -n 15 --random-source=$W $W
+      - uses: actions/download-artifact@v7
+        with: { name: wav, path: wav }
+      - run: |
+          curl -sSL -o m.zip https://alphacephei.com/vosk/models/vosk-model-small-ru-0.22.zip && unzip -q m.zip
+          curl -sSL -o vosk.jar https://repo1.maven.org/maven2/com/alphacephei/vosk/0.3.45/vosk-0.3.45.jar
+          curl -sSL -o jna.jar https://repo1.maven.org/maven2/net/java/dev/jna/jna/5.17.0/jna-5.17.0.jar
+          mkdir out && javac -encoding UTF-8 -cp "vosk.jar;jna.jar" -d out src/client/java/dev/langlearn/client/speech/Vosk.java tools/wintest/dev/langlearn/client/speech/WinTest.java
+          java -cp "out;vosk.jar;jna.jar" dev.langlearn.client.speech.WinTest vosk-model-small-ru-0.22 wav 2>&1 | grep -v "^LOG\|WARNING"
