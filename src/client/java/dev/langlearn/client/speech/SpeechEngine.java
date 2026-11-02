@@ -4,10 +4,6 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import dev.langlearn.LangLearn;
 import dev.langlearn.client.Config;
-import org.vosk.LibVosk;
-import org.vosk.LogLevel;
-import org.vosk.Model;
-import org.vosk.Recognizer;
 
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioSystem;
@@ -44,7 +40,7 @@ public final class SpeechEngine {
 	private static volatile String status = "";
 	private static volatile int downloadPercent = 0;
 	private static volatile String modelLang = null;
-	private static volatile Model model = null;
+	private static volatile Vosk.Model model = null;
 
 	private static volatile int session = 0;
 	private static volatile boolean listening = false;
@@ -77,7 +73,7 @@ public final class SpeechEngine {
 		if (lang.equals(modelLang) && (state == State.READY || state == State.DOWNLOADING || state == State.LOADING)) return;
 		String modelName = VoskModels.forLanguage(lang);
 		modelLang = lang;
-		Model old = model;
+		Vosk.Model old = model;
 		model = null;
 		if (old != null) {
 			try {
@@ -98,8 +94,7 @@ public final class SpeechEngine {
 				if (!lang.equals(modelLang)) return; // language changed meanwhile
 				state = State.LOADING;
 				status = "Loading speech model...";
-				LibVosk.setLogLevel(LogLevel.WARNINGS);
-				Model m = new Model(dir.toString());
+				Vosk.Model m = new Vosk.Model(dir.toString());
 				loadVocabulary(dir);
 				if (!lang.equals(modelLang)) {
 					m.close();
@@ -290,7 +285,7 @@ public final class SpeechEngine {
 		micThread.start();
 	}
 
-	private static void closeQuietly(Recognizer r) {
+	private static void closeQuietly(Vosk.Recognizer r) {
 		if (r == null) return;
 		try {
 			r.close();
@@ -301,13 +296,13 @@ public final class SpeechEngine {
 	private static void micLoop() {
 		AudioFormat format = new AudioFormat(SAMPLE_RATE, 16, 1, true, false);
 		TargetDataLine line = null;
-		Recognizer free = null;
-		Recognizer constrained = null;
+		Vosk.Recognizer free = null;
+		Vosk.Recognizer constrained = null;
 		int recSession = -1;
 		byte[] buf = new byte[3200]; // 0.1 s of audio
 		while (true) {
 			try {
-				Model m = model;
+				Vosk.Model m = model;
 				if (!listening || m == null) {
 					if (line != null) {
 						line.stop();
@@ -340,11 +335,11 @@ public final class SpeechEngine {
 					closeQuietly(free);
 					closeQuietly(constrained);
 					constrained = null;
-					free = new Recognizer(m, SAMPLE_RATE);
+					free = new Vosk.Recognizer(m, SAMPLE_RATE);
 					String g = grammar;
 					if (g != null) {
 						try {
-							constrained = new Recognizer(m, SAMPLE_RATE, g);
+							constrained = new Vosk.Recognizer(m, SAMPLE_RATE, g);
 						} catch (Throwable t) {
 							LangLearn.LOGGER.warn("Grammar recognizer failed, using free recognition only", t);
 						}
