@@ -6,6 +6,9 @@
 name: build
 on: [pull_request, push]
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-24.04
@@ -28,3 +31,10 @@ jobs:
         with:
           name: Artifacts
           path: build/libs/
+      - name: publish the jar as the "latest" release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest build/libs/*.jar --title "Latest build" --notes "Download langlearn-*.jar and put it in your mods folder (Minecraft 26.3, Fabric Loader + Fabric API)."
