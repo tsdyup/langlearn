@@ -23,10 +23,9 @@ jobs:
           curl -s "https://resources.download.minecraft.net/${H:0:2}/$H" | jq '[to_entries[]|select(.key|test("^(item|block)\\.minecraft\\.[a-z0-9_]+$"))|.value|select(test("%")|not)]' > names.json
           mkdir wav
           say() { espeak-ng -v ru -s 140 "$2" -w t.wav; ffmpeg -loglevel error -y -i t.wav -ar 16000 -ac 1 -c:a pcm_s16le "wav/${1// /_}__${2// /_}.wav"; }
-          say палка палка; say палка полка; say палка пачка; say палка балка
-          say книга книга; say книга книги; say книга нига
-          say "алмазный меч" "алмазный меч"; say "алмазный меч" "алмазный мяч"; say "алмазный меч" "алмазный мех"
-          say яблоко яблоко; say яблоко яблока
+          say "незеритовый нагрудник" "незеритовый нагрудник"; say "незеритовый нагрудник" "незеритовый"; say "незеритовый нагрудник" "нагрудник"
+          say "алмазный меч" "алмазный меч"; say "алмазный меч" "алмазный"; say "железный слиток" "железный"; say "железный слиток" "железный слиток"
+          say палка палка; say палка полка
       - name: run
         run: |
           CP=$(ls lib/*.jar | tr '\n' ':')
