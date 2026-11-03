@@ -24,8 +24,7 @@ jobs:
           SetLogLevel(-1)
           m = Model("vosk-model-small-ru-0.22")
           for f in glob.glob("ttsbase/tts/cache/ru_RU-*/*.wav"):
-              subprocess.run(["ffmpeg","-loglevel","error","-y","-i",f,"-ar","16000","-ac","1","t.wav"])
-              wf = wave.open("t.wav","rb"); r = KaldiRecognizer(m, 16000)
+              wf = wave.open(f,"rb"); r = KaldiRecognizer(m, wf.getframerate())
               while True:
                   d = wf.readframes(4000)
                   if not d: break
@@ -39,11 +38,16 @@ jobs:
           SetLogLevel(-1)
           m = Model("vosk-model-small-cn-0.22")
           for f in glob.glob("ttsbase/tts/cache/zh_CN-*/*.wav"):
-              subprocess.run(["ffmpeg","-loglevel","error","-y","-i",f,"-ar","16000","-ac","1","t.wav"])
-              wf = wave.open("t.wav","rb"); r = KaldiRecognizer(m, 16000)
+              wf = wave.open(f,"rb"); r = KaldiRecognizer(m, wf.getframerate())
               while True:
                   d = wf.readframes(4000)
                   if not d: break
                   r.AcceptWaveform(d)
               print(f, "->", json.loads(r.FinalResult())["text"].encode("unicode_escape").decode())
           P
+      - name: phoneme types of mapped voices
+        if: always()
+        run: |
+          for v in $(grep -o '"[a-z][a-z]/[a-z][a-z]_[A-Z][A-Z]/[^"]*"' src/client/java/dev/langlearn/client/speech/Tts.java | tr -d '"' | sort -u); do
+            echo "$v $(curl -sSL https://huggingface.co/rhasspy/piper-voices/resolve/main/$v.onnx.json | grep -o '"phoneme_type": *"[a-z_]*"')"
+          done
