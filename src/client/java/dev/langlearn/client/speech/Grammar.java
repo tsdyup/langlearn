@@ -30,7 +30,7 @@ public final class Grammar {
 
 	/** How picky the recognizer is. */
 	public enum Strictness {
-		EASY(0, 40, 0), NORMAL(6, 25, 0.35), HARD(12, 25, 0.6);
+		EASY(0, 40, 0), NORMAL(6, 25, 0.5), HARD(12, 25, 0.6);
 
 		/** near-miss words offered per word of the item name */
 		public final int confusablesPerWord;
@@ -61,14 +61,18 @@ public final class Grammar {
 
 	/** Pure version of {@link #build}, testable without Minecraft. */
 	public static String assemble(String lang, String target, List<String> otherNames, Set<String> vocab, Strictness st) {
-		String phrase = phrase(lang, target, vocab);
-		if (phrase == null) return null;
+		List<List<String>> groups = groups(lang, target, vocab);
+		if (groups == null) return null;
+		String[] words = new String[groups.size()];
+		for (int i = 0; i < words.length; i++) words[i] = String.join(" ", groups.get(i));
+		String phrase = String.join(" ", words);
 		Set<String> phrases = new LinkedHashSet<>();
 		phrases.add(phrase);
 
-		// near misses: replace one word at a time with a word that sounds almost the same
-		String[] words = phrase.split(" ");
+		// near misses: replace one real word at a time with a word that sounds almost the same
+		// (not for words the model had to build from pieces: swapping a piece makes nonsense)
 		for (int i = 0; i < words.length && st.confusablesPerWord > 0; i++) {
+			if (groups.get(i).size() != 1) continue;
 			for (String c : Confusables.forWord(lang, words[i], vocab, st.confusablesPerWord)) {
 				String[] copy = words.clone();
 				copy[i] = c;
@@ -85,7 +89,7 @@ public final class Grammar {
 
 		// other items that share a word with this one ("незеритовый меч" for "незеритовый нагрудник")
 		if (words.length > 1) {
-			Set<String> mine = Set.of(words);
+			Set<String> mine = new java.util.HashSet<>(java.util.Arrays.asList(phrase.split(" ")));
 			int shared = 0;
 			for (String name : otherNames) {
 				if (shared >= 15) break;
@@ -93,7 +97,7 @@ public final class Grammar {
 				String p = phrase(lang, name, vocab);
 				if (p == null || p.equals(phrase)) continue;
 				boolean overlaps = false;
-				for (String w : p.split(" ")) overlaps |= mine.contains(w);
+				for (String w : p.split(" ")) overlaps |= w.length() > 2 && mine.contains(w);
 				if (overlaps && phrases.add(p)) shared++;
 			}
 		}
@@ -113,6 +117,19 @@ public final class Grammar {
 
 	/** Turns a name into space-separated words from the model's vocabulary. */
 	public static String phrase(String lang, String text, Set<String> vocab) {
+		List<List<String>> g = groups(lang, text, vocab);
+		if (g == null) return null;
+		List<String> out = new ArrayList<>();
+		for (List<String> grp : g) out.addAll(grp);
+		return String.join(" ", out);
+	}
+
+	/**
+	 * The name as groups of recognizer words: one group per real word of the name. A word the model
+	 * doesn't know is split into pieces it does know, and those pieces stay together in one group.
+	 * For Chinese/Japanese every piece is its own group (they are real words there).
+	 */
+	static List<List<String>> groups(String lang, String text, Set<String> vocab) {
 		boolean cjk = VoskModels.isCjk(lang);
 		String t = text;
 		if (lang.startsWith("zh") && !lang.equals("zh_cn") || lang.equals("lzh")) {
@@ -122,31 +139,34 @@ public final class Grammar {
 		t = t.toLowerCase(Locale.ROOT).replaceAll("[^\\p{L}\\p{N}]+", " ").trim();
 		if (t.isEmpty()) return null;
 
-		List<String> out = new ArrayList<>();
+		List<List<String>> out = new ArrayList<>();
 		for (String token : t.split(" ")) {
+			List<String> pieces;
 			if (vocab == null) {
 				if (cjk) {
 					// no vocabulary list: best guess is one character per word
-					token.codePoints().forEach(cp -> out.add(new String(Character.toChars(cp))));
+					pieces = new ArrayList<>();
+					List<String> p = pieces;
+					token.codePoints().forEach(cp -> p.add(new String(Character.toChars(cp))));
 				} else {
-					out.add(token);
+					pieces = List.of(token);
 				}
-				continue;
+			} else if (vocab.contains(token)) {
+				pieces = List.of(token);
+			} else if (lang.startsWith("ru") && vocab.contains(token.replace('ё', 'е'))) {
+				pieces = List.of(token.replace('ё', 'е'));
+			} else {
+				// split into the longest pieces the model knows (needed for Chinese/Japanese, also helps compounds)
+				pieces = segment(token, vocab);
+				if (pieces == null) return null;
 			}
-			if (vocab.contains(token)) {
-				out.add(token);
-				continue;
+			if (cjk) {
+				for (String piece : pieces) out.add(List.of(piece));
+			} else {
+				out.add(pieces);
 			}
-			if (lang.startsWith("ru") && vocab.contains(token.replace('ё', 'е'))) {
-				out.add(token.replace('ё', 'е'));
-				continue;
-			}
-			// split into the longest pieces the model knows (needed for Chinese/Japanese, also helps compounds)
-			List<String> pieces = segment(token, vocab);
-			if (pieces == null) return null;
-			out.addAll(pieces);
 		}
-		return String.join(" ", out);
+		return out;
 	}
 
 	private static String katakanaFriendly(String t) {
