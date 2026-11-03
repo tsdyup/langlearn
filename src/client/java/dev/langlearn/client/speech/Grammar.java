@@ -30,7 +30,7 @@ public final class Grammar {
 
 	/** How picky the recognizer is. */
 	public enum Strictness {
-		EASY(0, 40, 0), NORMAL(4, 25, 0.6), HARD(10, 25, 0.85);
+		EASY(0, 40, 0), NORMAL(6, 25, 0.5), HARD(12, 25, 0.7);
 
 		/** near-miss words offered per word of the item name */
 		public final int confusablesPerWord;
