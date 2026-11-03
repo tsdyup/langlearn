@@ -24,14 +24,14 @@ gradlew.bat build        (Windows)
 ./gradlew build          (Mac/Linux)
 ```
 
-The first build downloads Gradle, Minecraft and Fabric, so it takes a few minutes. The mod ends up at `build/libs/langlearn-0.5.1.jar`.
+The first build downloads Gradle, Minecraft and Fabric, so it takes a few minutes. The mod ends up at `build/libs/langlearn-0.6.0.jar`.
 
 **No JDK?** Push this folder to a GitHub repo. The included GitHub Action builds it automatically, and the jar appears under *Actions → latest run → Artifacts*.
 
 ## 2. Install
 
 1. Install **Fabric Loader 0.20.1+** for Minecraft **26.3**.
-2. Put `langlearn-0.5.1.jar` and **Fabric API** (0.165.0+26.3 or newer) in `.minecraft/mods`.
+2. Put `langlearn-0.6.0.jar` and **Fabric API** (0.165.0+26.3 or newer) in `.minecraft/mods`.
 3. Singleplayer works out of the box. For multiplayer, the server also needs the mod, because the server is what deletes the items.
 
 ## 3. Play
@@ -45,6 +45,8 @@ The first build downloads Gradle, Minecraft and Fabric, so it takes a few minute
 | `/langlearn timer pickup 20` | Seconds to answer for ground pickups (3–60) |
 | `/langlearn timer other 30` | Seconds to answer for chests, crafting and everything else (3–60) |
 | `/langlearn strictness easy\|normal\|hard` | normal (default): words that sound almost the same compete with the right one, so палка said as "полка" doesn't count. easy: close enough counts. hard: even more sound-alikes and it must be said clearly |
+| **H** key | Hear the word read out loud by a natural offline voice (Piper). First use downloads the voice program (22 MB) and the language's voice (~60 MB) into `config/langlearn/tts`. Russian, Chinese and ~30 other languages; **no Japanese voice yet**. Windows only. |
+| `/langlearn autohear true\|false` | Read every new word out loud as soon as its card appears |
 | `/langlearn hints true\|false` | Pronunciation tips on the card (on by default) |
 | `/langlearn threshold 80` | For typed answers and languages without the item-name recognizer: how accurate you must be, in % |
 | `/langlearn mode auto\|typing\|both` | auto = voice if available, otherwise typing |

@@ -25,6 +25,8 @@ public final class Config {
 	public int timerOtherSeconds = 30;
 	/** easy / normal / hard: how close your pronunciation must be (see Grammar.Strictness). */
 	public String strictness = "normal";
+	/** Read every new word out loud automatically when its card appears. */
+	public boolean autoHear = false;
 	/** Show pronunciation tips on the card. */
 	public boolean hints = true;
 	/** Bumped when defaults change, so old config files get the new defaults once. */

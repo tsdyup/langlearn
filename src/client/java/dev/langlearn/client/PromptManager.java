@@ -2,6 +2,7 @@ package dev.langlearn.client;
 
 import dev.langlearn.client.speech.SpeechEngine;
 import dev.langlearn.client.speech.Grammar;
+import dev.langlearn.client.speech.Tts;
 import dev.langlearn.client.text.Hints;
 import dev.langlearn.client.text.Matcher;
 import dev.langlearn.client.text.Romanizer;
@@ -159,6 +160,15 @@ public final class PromptManager {
 			SpeechEngine.startListening(grammar);
 		}
 		play(SoundEvents.NOTE_BLOCK_PLING, 1.4f);
+		if (cfg.autoHear) hear();
+	}
+
+	/** Reads the current word out loud (or the last result's word if no card is open). */
+	public static void hear() {
+		String lang = Config.get().language;
+		String word = active != null ? active.word : result != null ? result.word : null;
+		if (word == null || !Tts.available(lang)) return;
+		Tts.speak(lang, word, ms -> SpeechEngine.muteFor(ms + 400));
 	}
 
 	public static void tick(Minecraft mc) {

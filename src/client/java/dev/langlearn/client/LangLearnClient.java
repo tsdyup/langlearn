@@ -1,7 +1,12 @@
 package dev.langlearn.client;
 
 import dev.langlearn.LangLearn;
+import com.mojang.blaze3d.platform.InputConstants;
 import dev.langlearn.client.speech.SpeechEngine;
+import dev.langlearn.client.speech.Tts;
+import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
+import net.minecraft.client.KeyMapping;
+import org.lwjgl.sdl.SDLScancode;
 import dev.langlearn.client.text.Japanese;
 import dev.langlearn.net.FailPayload;
 import dev.langlearn.net.PickupPayload;
@@ -18,9 +23,17 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 
 public class LangLearnClient implements ClientModInitializer {
+	/** Press to hear the word read out loud (default H). */
+	public static final KeyMapping HEAR = KeyMappingHelper.registerKeyMapping(new KeyMapping(
+			"key.langlearn.hear", InputConstants.Type.KEYBOARD, SDLScancode.SDL_SCANCODE_H, KeyMapping.Category.MISC));
+
 	@Override
 	public void onInitializeClient() {
 		Config.load();
+		Tts.init(Config.dir());
+		ClientTickEvents.END_CLIENT_TICK.register(client -> {
+			while (HEAR.consumeClick()) PromptManager.hear();
+		});
 
 		ClientPlayNetworking.registerGlobalReceiver(PickupPayload.TYPE, (payload, context) ->
 				context.client().execute(() -> PromptManager.onPickup(payload.stack(), payload.count(), payload.ground(), false)));

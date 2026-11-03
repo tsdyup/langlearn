@@ -1,6 +1,7 @@
 package dev.langlearn.client;
 
 import dev.langlearn.client.speech.SpeechEngine;
+import dev.langlearn.client.speech.Tts;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -37,11 +38,12 @@ public final class HudOverlay {
 	private static int drawPrompt(GuiGraphicsExtractor g, Font font, PromptManager.Prompt p, int y) {
 		String header = "SAY IT IN " + p.langName.toUpperCase(Locale.ROOT) + (p.test ? "  (TEST)" : "");
 		String secs = (p.ticksLeft + 19) / 20 + "s";
+		String hear = hearLabel();
 		String status = statusLine(p);
 
 		int wordW = (int) (font.width(p.word) * WORD_SCALE);
 		int w = Math.max(190, 34 + wordW + 10);
-		w = Math.max(w, font.width(header) + font.width(secs) + 26);
+		w = Math.max(w, font.width(header) + font.width(secs) + font.width(hear) + 34);
 		if (p.roman != null) w = Math.max(w, 34 + font.width(p.roman) + 10);
 		if (p.own != null) w = Math.max(w, 34 + font.width("= " + p.own) + 10);
 		w = Math.max(w, font.width(status) + 20 + (p.voice ? 36 : 0));
@@ -63,6 +65,7 @@ public final class HudOverlay {
 		// header row
 		g.text(font, header, x + 8, y + 5, GREY);
 		g.text(font, secs, x + w - 8 - font.width(secs), y + 5, p.ticksLeft < 60 ? RED : WHITE);
+		if (!hear.isEmpty()) g.text(font, hear, x + w - 16 - font.width(secs) - font.width(hear), y + 5, ROMAN);
 
 		// item icon + big word
 		int rowY = y + 17;
@@ -139,6 +142,15 @@ public final class HudOverlay {
 			g.text(font, ch, cx, y, c > 0 ? GREEN : c < 0 ? RED : neutral);
 			cx += font.width(ch);
 		}
+	}
+
+	/** "[H] hear it" or the voice download progress, shown in the header. */
+	private static String hearLabel() {
+		String lang = Config.get().language;
+		if (!Tts.available(lang)) return "";
+		String st = Tts.status();
+		if (!st.isEmpty()) return st;
+		return Tts.busy() ? "speaking..." : "[" + LangLearnClient.HEAR.getTranslatedKeyMessage().getString() + "] hear it";
 	}
 
 	private static String statusLine(PromptManager.Prompt p) {

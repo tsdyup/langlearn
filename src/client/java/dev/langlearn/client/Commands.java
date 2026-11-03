@@ -68,6 +68,15 @@ public final class Commands {
 									Config.save();
 									return ok(ctx, "Pronunciation tips " + (Config.get().hints ? "on" : "off"));
 								})))
+				.then(ClientCommands.literal("autohear")
+						.then(ClientCommands.argument("on", BoolArgumentType.bool())
+								.executes(ctx -> {
+									Config.get().autoHear = BoolArgumentType.getBool(ctx, "on");
+									Config.save();
+									return ok(ctx, Config.get().autoHear
+											? "Every new word is read out loud when its card appears"
+											: "Words are read out loud only when you press the hear key (H)");
+								})))
 				.then(ClientCommands.literal("on").executes(ctx -> toggle(ctx, true)))
 				.then(ClientCommands.literal("off").executes(ctx -> toggle(ctx, false)))
 				.then(ClientCommands.literal("test").executes(Commands::test))

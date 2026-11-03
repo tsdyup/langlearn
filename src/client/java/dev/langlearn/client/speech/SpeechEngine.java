@@ -246,6 +246,13 @@ public final class SpeechEngine {
 		}
 	}
 
+	private static volatile long muteUntil = 0;
+
+	/** Ignore the microphone for the next {@code ms} milliseconds (while the voice reads the word). */
+	public static void muteFor(long ms) {
+		muteUntil = System.nanoTime() + ms * 1_000_000L;
+	}
+
 	/** Current microphone loudness 0..1 (before the automatic boost), for the level bar on the card. */
 	public static float micLevel() {
 		return micLevel;
@@ -351,6 +358,10 @@ public final class SpeechEngine {
 				}
 				int n = line.read(buf, 0, buf.length);
 				if (n <= 0) continue;
+				if (System.nanoTime() < muteUntil) {
+					micLevel = 0;
+					continue; // the word is being played out loud: don't let the recognizer hear it
+				}
 				applyGain(buf, n);
 				if (free.acceptWaveForm(buf, n)) push(free.getResult(), "text", false);
 				else push(free.getPartialResult(), "partial", false);
