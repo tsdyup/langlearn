@@ -76,6 +76,28 @@ public final class Grammar {
 			}
 		}
 
+		// parts of the name on their own, so saying only half of it can't match the whole name
+		for (int len = words.length - 1; len >= 1; len--) {
+			for (int start = 0; start + len <= words.length; start++) {
+				phrases.add(String.join(" ", java.util.Arrays.copyOfRange(words, start, start + len)));
+			}
+		}
+
+		// other items that share a word with this one ("незеритовый меч" for "незеритовый нагрудник")
+		if (words.length > 1) {
+			Set<String> mine = Set.of(words);
+			int shared = 0;
+			for (String name : otherNames) {
+				if (shared >= 15) break;
+				if (name.equals(target)) continue;
+				String p = phrase(lang, name, vocab);
+				if (p == null || p.equals(phrase)) continue;
+				boolean overlaps = false;
+				for (String w : p.split(" ")) overlaps |= mine.contains(w);
+				if (overlaps && phrases.add(p)) shared++;
+			}
+		}
+
 		int added = 0;
 		for (String name : otherNames) {
 			if (added >= st.randomNames) break;
