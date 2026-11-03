@@ -37,6 +37,7 @@ public final class PromptManager {
 		/** per character of {@link #display}: 1 right, -1 wrong, 0 neutral; null until you've said something */
 		public int[] colors;
 		public boolean grammar;
+		public boolean pieces;
 		public Grammar.Strictness strictness = Grammar.Strictness.NORMAL;
 		/** pronunciation tips for this word (rotated on the card) */
 		public java.util.List<String> tips = java.util.List.of();
@@ -154,6 +155,7 @@ public final class PromptManager {
 				}
 			}
 			p.grammar = grammar != null;
+			p.pieces = p.grammar && Grammar.hasPieces(cfg.language, p.word);
 			SpeechEngine.startListening(grammar);
 		}
 		play(SoundEvents.NOTE_BLOCK_PLING, 1.4f);
@@ -197,7 +199,8 @@ public final class PromptManager {
 			if (p.grammar) {
 				// strict mode: only a finished answer that is exactly the item, said clearly enough, counts
 				if (!h.isFinal()) continue;
-				if (s >= 100) {
+				// words built from pieces are recognized less reliably, so a tiny piece may be missing
+				if (s >= (p.pieces ? 90 : 100)) {
 					double conf = h.confidence() < 0 ? 1.0 : h.confidence();
 					int pct = (int) Math.round(conf * 100);
 					if (conf >= p.strictness.minConfidence) {

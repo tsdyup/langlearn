@@ -54,6 +54,14 @@ public final class Grammar {
 		}
 	}
 
+	/** True if the model had to build a word of this name from smaller pieces (e.g. "незеритовый"). */
+	public static boolean hasPieces(String lang, String target) {
+		List<List<String>> g = groups(lang, target, SpeechEngine.vocabulary());
+		if (g == null || VoskModels.isCjk(lang)) return false;
+		for (List<String> grp : g) if (grp.size() > 1) return true;
+		return false;
+	}
+
 	/** The phrase the recognizer will answer with when you say the target right (for comparing). */
 	public static String targetPhrase(String lang, String target) {
 		return phrase(lang, target, SpeechEngine.vocabulary());
