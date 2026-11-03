@@ -14,6 +14,18 @@ jobs:
           curl -sSL -o slf4j.jar https://repo1.maven.org/maven2/org/slf4j/slf4j-api/2.0.16/slf4j-api-2.0.16.jar
           mkdir out && javac -encoding UTF-8 -cp slf4j.jar -d out src/client/java/dev/langlearn/client/speech/Tts.java tools/ttstest/dev/langlearn/client/speech/TtsTest.java
           java -cp "out;slf4j.jar" dev.langlearn.client.speech.TtsTest
+      - name: debug piper
+        if: always()
+        run: |
+          ls -la ttsbase/tts/piper/piper | head -30
+          cd ttsbase/tts/piper/piper
+          ./piper.exe --help 2>&1 | head -5; echo "help exit=$?"
+          echo "hello world" | ./piper.exe --model ../../voices/ru_RU-irina-medium.onnx --output_file ../../x.wav; echo "exit=$?"
+          ls -la ../../x.wav || true
+          echo "привет" | ./piper.exe --model ../../voices/ru_RU-irina-medium.onnx --output_file ../../y.wav --debug 2>&1 | tail -15; echo "exit=$?"
+          ls -la ../../y.wav || true
+          echo "ダイヤモンド" | ./piper.exe --model ../../voices/ja_JP-hi_fi_captain-medium.onnx --output_file ../../z.wav 2>&1 | tail -5; ls -la ../../z.wav || true
+          grep -o '"phoneme_type": *"[a-z_]*"' ../../voices/*.json
       - name: check the Russian audio with the speech recognizer
         run: |
           pip install -q vosk
