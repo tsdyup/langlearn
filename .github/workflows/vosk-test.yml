@@ -3,13 +3,32 @@ on:
   push:
     branches: [experiments]
 jobs:
-  piper-info:
-    runs-on: ubuntu-24.04
+  tts-windows:
+    runs-on: windows-latest
+    defaults: { run: { shell: bash } }
     steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with: { java-version: '25', distribution: 'microsoft' }
       - run: |
-          for u in https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_windows_amd64.zip; do echo "$u -> $(curl -sIL -o /dev/null -w '%{http_code} %{size_download}' $u) $(curl -sIL $u | grep -i content-length | tail -1)"; done
-          curl -sSL https://huggingface.co/rhasspy/piper-voices/resolve/main/voices.json > voices.json
-          jq -r 'to_entries[] | "\(.value.language.code) \(.value.quality) \(.key) \(.value.files|keys|map(select(endswith(".onnx")))[0]) \(.value.files|to_entries|map(select(.key|endswith(".onnx")))[0].value.size_bytes)"' voices.json | sort > list.txt
-          wc -l list.txt
-          # best per locale: medium > high > low > x_low
-          awk '{q=$2; r=(q=="medium"?0:(q=="high"?1:(q=="low"?2:3))); if(!($1 in best) || r<br[$1]){best[$1]=$0; br[$1]=r}} END{for(k in best) print best[k]}' list.txt | sort
+          curl -sSL -o slf4j.jar https://repo1.maven.org/maven2/org/slf4j/slf4j-api/2.0.16/slf4j-api-2.0.16.jar
+          mkdir out && javac -encoding UTF-8 -cp slf4j.jar -d out src/client/java/dev/langlearn/client/speech/Tts.java tools/ttstest/dev/langlearn/client/speech/TtsTest.java
+          java -cp "out;slf4j.jar" dev.langlearn.client.speech.TtsTest
+      - name: check the Russian audio with the speech recognizer
+        run: |
+          pip install -q vosk
+          curl -sSL -o m.zip https://alphacephei.com/vosk/models/vosk-model-small-ru-0.22.zip && unzip -q m.zip
+          python - <<'P'
+          import glob, json, wave, subprocess
+          from vosk import Model, KaldiRecognizer, SetLogLevel
+          SetLogLevel(-1)
+          m = Model("vosk-model-small-ru-0.22")
+          for f in glob.glob("ttsbase/cache/ru_RU-*/*.wav"):
+              subprocess.run(["ffmpeg","-loglevel","error","-y","-i",f,"-ar","16000","-ac","1","t.wav"])
+              wf = wave.open("t.wav","rb"); r = KaldiRecognizer(m, 16000)
+              while True:
+                  d = wf.readframes(4000)
+                  if not d: break
+                  r.AcceptWaveform(d)
+              print(f, "->", json.loads(r.FinalResult())["text"].encode("unicode_escape").decode())
+          P
