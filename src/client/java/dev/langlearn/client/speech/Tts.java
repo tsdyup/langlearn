@@ -43,7 +43,6 @@ public final class Tts {
 			Map.entry("zh_tw", "zh/zh_CN/huayan/medium/zh_CN-huayan-medium"),
 			Map.entry("zh_hk", "zh/zh_CN/huayan/medium/zh_CN-huayan-medium"),
 			Map.entry("lzh", "zh/zh_CN/huayan/medium/zh_CN-huayan-medium"),
-			Map.entry("ja_jp", "ja/ja_JP/hi_fi_captain/medium/ja_JP-hi_fi_captain-medium"),
 			Map.entry("uk_ua", "uk/uk_UA/ukrainian_tts/medium/uk_UA-ukrainian_tts-medium"),
 			Map.entry("en_us", "en/en_US/amy/medium/en_US-amy-medium"),
 			Map.entry("en_gb", "en/en_GB/alan/medium/en_GB-alan-medium"),
@@ -58,7 +57,6 @@ public final class Tts {
 			Map.entry("tr_tr", "tr/tr_TR/dfki/medium/tr_TR-dfki-medium"),
 			Map.entry("cs_cz", "cs/cs_CZ/jirka/medium/cs_CZ-jirka-medium"),
 			Map.entry("hu_hu", "hu/hu_HU/anna/medium/hu_HU-anna-medium"),
-			Map.entry("ko_kr", "ko/ko_KR/kss/medium/ko_KR-kss-medium"),
 			Map.entry("vi_vn", "vi/vi_VN/vais1000/medium/vi_VN-vais1000-medium"),
 			Map.entry("sv_se", "sv/sv_SE/alma/medium/sv_SE-alma-medium"),
 			Map.entry("fi_fi", "fi/fi_FI/harri/medium/fi_FI-harri-medium"),
@@ -87,7 +85,7 @@ public final class Tts {
 	private static volatile boolean busy = false;
 
 	public static void init(Path configDir) {
-		base = configDir.resolve("tts");
+		base = configDir.resolve("tts").toAbsolutePath();
 	}
 
 	public static boolean available(String lang) {
