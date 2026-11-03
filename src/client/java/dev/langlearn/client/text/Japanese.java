@@ -2,7 +2,6 @@ package dev.langlearn.client.text;
 
 import com.atilika.kuromoji.ipadic.Token;
 import com.atilika.kuromoji.ipadic.Tokenizer;
-import dev.langlearn.LangLearn;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,7 +23,7 @@ public final class Japanese {
 				tokenizer = new Tokenizer();
 			} catch (Throwable t) {
 				failed = true;
-				LangLearn.LOGGER.warn("Japanese tokenizer failed to load, kanji will not be romanized", t);
+				org.slf4j.LoggerFactory.getLogger("langlearn").warn("Japanese tokenizer failed to load, kanji will not be romanized", t);
 			}
 		}
 		return tokenizer;
