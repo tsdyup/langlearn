@@ -59,6 +59,15 @@ public final class Commands {
 									Config.save();
 									return ok(ctx, "Item-name recognizer " + (Config.get().itemGrammar ? "on" : "off (free recognition only)"));
 								})))
+				.then(ClientCommands.literal("strictness")
+						.then(strict("easy")).then(strict("normal")).then(strict("hard")))
+				.then(ClientCommands.literal("hints")
+						.then(ClientCommands.argument("on", BoolArgumentType.bool())
+								.executes(ctx -> {
+									Config.get().hints = BoolArgumentType.getBool(ctx, "on");
+									Config.save();
+									return ok(ctx, "Pronunciation tips " + (Config.get().hints ? "on" : "off"));
+								})))
 				.then(ClientCommands.literal("on").executes(ctx -> toggle(ctx, true)))
 				.then(ClientCommands.literal("off").executes(ctx -> toggle(ctx, false)))
 				.then(ClientCommands.literal("test").executes(Commands::test))
@@ -74,6 +83,19 @@ public final class Commands {
 			Config.get().mode = m;
 			Config.save();
 			return ok(ctx, "Mode: " + m);
+		});
+	}
+
+	private static com.mojang.brigadier.builder.LiteralArgumentBuilder<FabricClientCommandSource> strict(String level) {
+		return ClientCommands.literal(level).executes(ctx -> {
+			Config.get().strictness = level;
+			Config.save();
+			String what = switch (level) {
+				case "easy" -> "close enough counts";
+				case "hard" -> "many sound-alike words compete, and it must be clear (85%+)";
+				default -> "sound-alike words compete with the right one";
+			};
+			return ok(ctx, "Strictness: " + level + " (" + what + ")");
 		});
 	}
 
@@ -97,6 +119,7 @@ public final class Commands {
 		ok(ctx, "Learning " + Translations.languageName() + " (" + c.language + ")" + (c.enabled ? "" : " [OFF]"));
 		ok(ctx, "Words unlocked: " + Progress.unlockedCount() + " / " + Progress.seenCount() + " seen");
 		ok(ctx, "Timer " + c.timerSeconds + "s (ground) / " + c.timerOtherSeconds + "s (chests, crafting...), needs " + c.threshold + "%, mode " + c.mode
+				+ ", strictness " + c.strictness
 				+ (c.itemGrammar ? "" : ", item-name recognizer off"));
 		String voice = VoskModels.forLanguage(c.language) == null
 				? "no voice model for this language (typing only)"

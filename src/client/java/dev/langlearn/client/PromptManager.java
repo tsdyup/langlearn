@@ -2,6 +2,7 @@ package dev.langlearn.client;
 
 import dev.langlearn.client.speech.SpeechEngine;
 import dev.langlearn.client.speech.Grammar;
+import dev.langlearn.client.text.Hints;
 import dev.langlearn.client.text.Matcher;
 import dev.langlearn.client.text.Romanizer;
 import dev.langlearn.net.FailPayload;
@@ -36,6 +37,11 @@ public final class PromptManager {
 		/** per character of {@link #display}: 1 right, -1 wrong, 0 neutral; null until you've said something */
 		public int[] colors;
 		public boolean grammar;
+		public Grammar.Strictness strictness = Grammar.Strictness.NORMAL;
+		/** pronunciation tips for this word (rotated on the card) */
+		public java.util.List<String> tips = java.util.List.of();
+		/** what went wrong in the last attempt, or null */
+		public String mistake;
 		/** best score among results that were shown (used for the letter colours) */
 		public int bestShown = -1;
 		/** picked up from the ground (short timer) vs chest/crafting/etc. (long timer) */
@@ -113,6 +119,7 @@ public final class PromptManager {
 		p.test = test;
 		p.ground = ground;
 		p.display = p.roman != null ? p.roman : word;
+		p.tips = cfg.hints ? Hints.forWord(cfg.language, word, p.roman, 3) : java.util.List.of();
 		queue.add(p);
 	}
 
@@ -133,6 +140,7 @@ public final class PromptManager {
 				p.typing = !voiceReady;
 			}
 		}
+		p.strictness = Grammar.Strictness.of(cfg.strictness);
 		p.totalTicks = (p.ground ? cfg.timerSeconds : cfg.timerOtherSeconds) * 20;
 		p.ticksLeft = p.totalTicks;
 		active = p;
@@ -140,7 +148,7 @@ public final class PromptManager {
 			String grammar = null;
 			if (cfg.itemGrammar) {
 				try {
-					grammar = Grammar.build(cfg.language, p.word);
+					grammar = Grammar.build(cfg.language, p.word, p.strictness);
 				} catch (Throwable t) {
 					grammar = null;
 				}
@@ -173,21 +181,36 @@ public final class PromptManager {
 		while ((h = SpeechEngine.heard.poll()) != null) {
 			// with the item-name recognizer active, only its answers are shown and coloured:
 			// the free recognizer mostly produces gibberish for single words
-			boolean shown = h.constrained() || !p.grammar;
+			if (p.grammar && !h.constrained()) continue;
 			if (h.text().equals(SpeechEngine.UNSURE)) {
-				if (shown) p.lastHeard = "(not sure, say it again)";
+				p.lastHeard = "(not sure, say it again)";
 				continue;
 			}
 			int s = Matcher.score(lang, p.word, h.text());
-			if (shown) {
-				p.lastHeard = readable(lang, h.text());
-				if (s >= p.bestShown || p.colors == null) {
-					p.colors = Matcher.letterColors(lang, p.display, h.text());
-					p.bestShown = s;
-				}
+			p.lastHeard = readable(lang, h.text());
+			if (s >= p.bestShown || p.colors == null) {
+				p.colors = Matcher.letterColors(lang, p.display, h.text());
+				p.bestShown = s;
 			}
 			p.best = Math.max(p.best, s);
-			if (s >= Config.get().threshold) {
+
+			if (p.grammar) {
+				// strict mode: only a finished answer that is exactly the item, said clearly enough, counts
+				if (!h.isFinal()) continue;
+				if (s >= 100) {
+					double conf = h.confidence() < 0 ? 1.0 : h.confidence();
+					int pct = (int) Math.round(conf * 100);
+					if (conf >= p.strictness.minConfidence) {
+						finish(true, pct);
+						return;
+					}
+					p.mistake = "almost! it wasn't sure (" + pct + "%), say it more clearly";
+				} else {
+					String m = Hints.mistake(lang, p.word, h.text());
+					p.mistake = m != null ? m : "that was a different word";
+				}
+				play(SoundEvents.NOTE_BLOCK_BASS, 0.8f);
+			} else if (s >= Config.get().threshold) {
 				finish(true, s);
 				return;
 			}
@@ -206,6 +229,7 @@ public final class PromptManager {
 		String lang = Config.get().language;
 		int s = Matcher.score(lang, p.word, message);
 		p.lastHeard = readable(lang, message);
+		if (s < Config.get().threshold) p.mistake = Hints.mistake(lang, p.word, message);
 		if (s >= p.bestShown || p.colors == null) {
 			p.colors = Matcher.letterColors(lang, p.display, message);
 			p.bestShown = s;

@@ -47,6 +47,8 @@ final class Vosk {
 
 	static native void vosk_recognizer_free(Pointer recognizer);
 
+	static native void vosk_recognizer_set_words(Pointer recognizer, int words);
+
 	static byte[] utf8(String s) {
 		byte[] b = s.getBytes(StandardCharsets.UTF_8);
 		byte[] out = new byte[b.length + 1]; // C strings end with a zero byte
@@ -85,6 +87,11 @@ final class Vosk {
 		Recognizer(Model model, float sampleRate, String grammarJson) {
 			ptr = vosk_recognizer_new_grm(model.ptr, sampleRate, utf8(grammarJson));
 			if (ptr == null) throw new IllegalStateException("Failed to create grammar recognizer");
+		}
+
+		/** Include per-word confidence ("conf") in final results. */
+		void setWords(boolean on) {
+			vosk_recognizer_set_words(ptr, on ? 1 : 0);
 		}
 
 		boolean acceptWaveForm(byte[] data, int len) {

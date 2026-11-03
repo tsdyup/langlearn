@@ -19,24 +19,69 @@ import java.util.Set;
  * whichever Minecraft item sounds closest to what you said (or nothing).
  */
 public final class Grammar {
-	private static final int DISTRACTORS = 40;
 	private static final Random RANDOM = new Random();
 
 	/** Grammar JSON for this target word, or null if the model can't spell it with words it knows. */
-	public static String build(String lang, String target) {
-		Set<String> vocab = SpeechEngine.vocabulary();
+	public static String build(String lang, String target, Strictness strictness) {
+		List<String> names = new ArrayList<>(Translations.itemNames());
+		Collections.shuffle(names, RANDOM);
+		return assemble(lang, target, names, SpeechEngine.vocabulary(), strictness);
+	}
+
+	/** How picky the recognizer is. */
+	public enum Strictness {
+		EASY(0, 40, 0), NORMAL(4, 25, 0.6), HARD(10, 25, 0.85);
+
+		/** near-miss words offered per word of the item name */
+		public final int confusablesPerWord;
+		/** other random item names offered */
+		public final int randomNames;
+		/** minimum recognizer confidence (0-1) for a correct answer to count */
+		public final double minConfidence;
+
+		Strictness(int c, int r, double conf) {
+			confusablesPerWord = c;
+			randomNames = r;
+			minConfidence = conf;
+		}
+
+		public static Strictness of(String s) {
+			try {
+				return valueOf(s.toUpperCase(Locale.ROOT));
+			} catch (Exception e) {
+				return NORMAL;
+			}
+		}
+	}
+
+	/** The phrase the recognizer will answer with when you say the target right (for comparing). */
+	public static String targetPhrase(String lang, String target) {
+		return phrase(lang, target, SpeechEngine.vocabulary());
+	}
+
+	/** Pure version of {@link #build}, testable without Minecraft. */
+	public static String assemble(String lang, String target, List<String> otherNames, Set<String> vocab, Strictness st) {
 		String phrase = phrase(lang, target, vocab);
 		if (phrase == null) return null;
 		Set<String> phrases = new LinkedHashSet<>();
 		phrases.add(phrase);
 
-		List<String> names = new ArrayList<>(Translations.itemNames());
-		Collections.shuffle(names, RANDOM);
-		for (String name : names) {
-			if (phrases.size() > DISTRACTORS) break;
+		// near misses: replace one word at a time with a word that sounds almost the same
+		String[] words = phrase.split(" ");
+		for (int i = 0; i < words.length && st.confusablesPerWord > 0; i++) {
+			for (String c : Confusables.forWord(lang, words[i], vocab, st.confusablesPerWord)) {
+				String[] copy = words.clone();
+				copy[i] = c;
+				phrases.add(String.join(" ", copy));
+			}
+		}
+
+		int added = 0;
+		for (String name : otherNames) {
+			if (added >= st.randomNames) break;
 			if (name.equals(target)) continue;
 			String p = phrase(lang, name, vocab);
-			if (p != null && !p.isEmpty()) phrases.add(p);
+			if (p != null && !p.isEmpty() && phrases.add(p)) added++;
 		}
 		JsonArray arr = new JsonArray();
 		for (String p : phrases) arr.add(p);
@@ -45,7 +90,7 @@ public final class Grammar {
 	}
 
 	/** Turns a name into space-separated words from the model's vocabulary. */
-	static String phrase(String lang, String text, Set<String> vocab) {
+	public static String phrase(String lang, String text, Set<String> vocab) {
 		boolean cjk = VoskModels.isCjk(lang);
 		String t = text;
 		if (lang.startsWith("zh") && !lang.equals("zh_cn") || lang.equals("lzh")) {

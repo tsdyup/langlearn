@@ -96,6 +96,7 @@ public final class SpeechEngine {
 				status = "Loading speech model...";
 				Vosk.Model m = new Vosk.Model(dir.toString());
 				loadVocabulary(dir);
+				Confusables.prepare(lang, vocab);
 				if (!lang.equals(modelLang)) {
 					m.close();
 					return;
@@ -189,7 +190,7 @@ public final class SpeechEngine {
 	}
 
 	/** A recognized piece of speech. {@code constrained} = came from the item-name-only recognizer. */
-	public record Heard(String text, boolean constrained) {}
+	public record Heard(String text, boolean constrained, boolean isFinal, double confidence) {}
 
 	/**
 	 * Start listening for a new prompt.
@@ -340,6 +341,7 @@ public final class SpeechEngine {
 					if (g != null) {
 						try {
 							constrained = new Vosk.Recognizer(m, SAMPLE_RATE, g);
+							constrained.setWords(true);
 						} catch (Throwable t) {
 							LangLearn.LOGGER.warn("Grammar recognizer failed, using free recognition only", t);
 						}
@@ -390,14 +392,30 @@ public final class SpeechEngine {
 				if (isConstrained && raw.contains("[unk]")) t = UNSURE;
 				else return;
 			}
+			boolean isFinal = field.equals("text");
+			// skip repeated partial results; final results (with confidence) always go through
 			if (isConstrained) {
-				if (t.equals(lastConstrained)) return;
-				lastConstrained = t;
+				if (!isFinal && t.equals(lastConstrained)) return;
+				lastConstrained = isFinal ? "" : t;
 			} else {
-				if (t.equals(lastFree)) return;
-				lastFree = t;
+				if (!isFinal && t.equals(lastFree)) return;
+				lastFree = isFinal ? "" : t;
 			}
-			heard.add(new Heard(t, isConstrained));
+			double conf = -1;
+			if (isFinal && o.has("result") && o.get("result").isJsonArray()) {
+				// average confidence of the recognized words (only final results have it)
+				double sum = 0;
+				int count = 0;
+				for (var el : o.getAsJsonArray("result")) {
+					JsonObject w = el.getAsJsonObject();
+					if (w.has("conf")) {
+						sum += w.get("conf").getAsDouble();
+						count++;
+					}
+				}
+				if (count > 0) conf = sum / count;
+			}
+			heard.add(new Heard(t, isConstrained, isFinal, conf));
 		} catch (Exception ignored) {
 		}
 	}

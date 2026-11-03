@@ -16,6 +16,7 @@ public final class HudOverlay {
 	private static final int WHITE = 0xFFFFFFFF;
 	private static final int WORD = 0xFFFFE27A;
 	private static final int ROMAN = 0xFF7FE3FF;
+	private static final int TIP = 0xFFE8C77A;
 	private static final int GREEN_BG = 0xD0123A22;
 	private static final int GREEN = 0xFF6CF08C;
 	private static final int RED_BG = 0xD0401418;
@@ -46,8 +47,14 @@ public final class HudOverlay {
 		w = Math.max(w, font.width(status) + 20 + (p.voice ? 36 : 0));
 		w = Math.min(w, g.guiWidth() - 8);
 
+		// rotating pronunciation tip (a new one every 4 seconds) and the last mistake, wrapped to the card
+		String tip = p.tips.isEmpty() ? null : "tip: " + p.tips.get(((p.totalTicks - p.ticksLeft) / 80) % p.tips.size());
+		java.util.List<String> tipLines = tip == null ? java.util.List.of() : wrap(font, tip, w - 16);
+		java.util.List<String> mistakeLines = p.mistake == null ? java.util.List.of() : wrap(font, p.mistake, w - 16);
+		int extra = (tipLines.size() + mistakeLines.size()) * 10;
+
 		int lines = 1 + (p.roman != null ? 1 : 0) + (p.own != null ? 1 : 0);
-		int h = 18 + 16 + (lines - 1) * 11 + 10 + 12;
+		int h = 18 + 16 + (lines - 1) * 11 + 10 + 12 + extra + (extra > 0 ? 2 : 0);
 		int x = (g.guiWidth() - w) / 2;
 
 		g.fill(x, y, x + w, y + h, BG);
@@ -88,6 +95,15 @@ public final class HudOverlay {
 		g.fill(barX, barY, barX + filled, barY + 3, p.ticksLeft < 60 ? RED : ACCENT);
 
 		g.text(font, status, x + 8, barY + 6, GREY);
+		int ly = barY + 18;
+		for (String l : mistakeLines) {
+			g.text(font, l, x + 8, ly, RED);
+			ly += 10;
+		}
+		for (String l : tipLines) {
+			g.text(font, l, x + 8, ly, TIP);
+			ly += 10;
+		}
 		if (p.voice) {
 			// microphone level: if this never moves while you talk, the wrong mic is selected or it's muted
 			int lvlW = 30, lvlX = x + w - 8 - lvlW, lvlY = barY + 8;
@@ -95,6 +111,23 @@ public final class HudOverlay {
 			g.fill(lvlX, lvlY, lvlX + (int) (lvlW * SpeechEngine.micLevel()), lvlY + 4, GREEN);
 		}
 		return y + h;
+	}
+
+	/** Splits text into lines that fit {@code maxW} pixels. */
+	private static java.util.List<String> wrap(Font font, String text, int maxW) {
+		java.util.List<String> out = new java.util.ArrayList<>();
+		StringBuilder line = new StringBuilder();
+		for (String word : text.split(" ")) {
+			String next = line.isEmpty() ? word : line + " " + word;
+			if (font.width(next) > maxW && !line.isEmpty()) {
+				out.add(line.toString());
+				line = new StringBuilder(word);
+			} else {
+				line = new StringBuilder(next);
+			}
+		}
+		if (!line.isEmpty()) out.add(line.toString());
+		return out;
 	}
 
 	/** Draws text letter by letter: green = you said it right, red = wrong or missing. */
