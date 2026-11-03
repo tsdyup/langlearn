@@ -8,6 +8,10 @@ public class StrictTest {
     Vosk.Model m = new Vosk.Model(a[0]);
     List<String> names = dev.langlearn.client.Translations.itemNames();
     for (String t : new String[]{"палка","книга","алмазный меч"}) System.out.println("confusables for " + t + ": " + Confusables.forWord("ru_ru", t.split(" ")[t.split(" ").length-1], SpeechEngine.vocab, 10));
+    { List<String> sh = new ArrayList<>(names); Collections.shuffle(sh, new Random(7));
+      String g0 = Grammar.assemble("ru_ru", "незеритовый нагрудник", sh, SpeechEngine.vocab, Grammar.Strictness.NORMAL);
+      System.out.println("GRAMMAR " + g0);
+      for (String n : names) if (n.toLowerCase().contains("незерит")) System.out.println("NAME " + n + " -> " + Grammar.phrase("ru_ru", n, SpeechEngine.vocab)); }
     // file name: <target>__<spoken>.wav
     for (File f : new File(a[1]).listFiles()) {
       String[] parts = f.getName().replace(".wav","").split("__");
