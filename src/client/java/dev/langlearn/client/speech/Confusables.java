@@ -62,11 +62,20 @@ public final class Confusables {
 				if (d <= maxDist) for (String w : e.getValue()) cands.add(new Cand(w, d));
 			}
 		} else {
+			// (1) same length, one sound changed: палка -> балка, галка, пачка
+			// (2) other endings of the same word: книга -> книги, книгу, книге
 			int len = word.length();
 			for (String w : vocab) {
-				if (Math.abs(w.length() - len) > 1 || w.equals(word)) continue;
-				int d = distance(word, w, maxDist);
-				if (d > maxDist) continue;
+				int wl = w.length();
+				if (wl < 3 || Math.abs(wl - len) > 1 || w.equals(word)) continue;
+				int d;
+				if (wl == len && (d = distance(word, w, 1)) == 1) {
+					// substitution
+				} else if (len >= 4 && commonPrefix(word, w) >= len - 2) {
+					d = 2; // inflection, ranked after substitutions
+				} else {
+					continue;
+				}
 				if (Romanizer.key(lang, w).equals(key)) continue; // sounds the same (e.g. ё/е)
 				cands.add(new Cand(w, d));
 			}
@@ -77,6 +86,12 @@ public final class Confusables {
 			out.add(c.w());
 		}
 		return out;
+	}
+
+	private static int commonPrefix(String a, String b) {
+		int i = 0;
+		while (i < a.length() && i < b.length() && a.charAt(i) == b.charAt(i)) i++;
+		return i;
 	}
 
 	/** Levenshtein distance, giving up early (returns max+1) once it exceeds {@code max}. */
