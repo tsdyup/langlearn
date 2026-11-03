@@ -8,7 +8,11 @@ public class TtsTest {
       {"ru/ru_RU/denis/medium/ru_RU-denis-medium", "Незеритовый нагрудник"},
       {"zh/zh_CN/huayan/medium/zh_CN-huayan-medium", "钻石剑"},
       {"zh/zh_CN/chaowen/medium/zh_CN-chaowen-medium", "钻石剑"},
-      {"ja/ja_JP/hi_fi_captain/medium/ja_JP-hi_fi_captain-medium", "ダイヤモンドの剣"},
+      {"ru/ru_RU/irina/medium/ru_RU-irina-medium", "палка"},
+      {"ru/ru_RU/denis/medium/ru_RU-denis-medium", "палка"},
+      {"ru/ru_RU/irina/medium/ru_RU-irina-medium", "алмазный меч"},
+      {"zh/zh_CN/huayan/medium/zh_CN-huayan-medium", "苹果"},
+      {"zh/zh_CN/chaowen/medium/zh_CN-chaowen-medium", "苹果"},
     };
     for (String[] c : cases) {
       long t0 = System.currentTimeMillis();
