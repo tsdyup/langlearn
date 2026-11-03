@@ -2,13 +2,14 @@
 
 Every time an item goes into your inventory, a card pops up at the top of the screen with that item's name in the language you're learning. Say it out loud before the timer runs out, or the item is deleted from your inventory.
 
-- Picked up from the ground: **10 seconds**.
-- From chests, crafting, furnaces, trades, `/give` and so on: **20 seconds**. For chests and other blocks with a menu, the card appears when you close the menu, and only for what you actually kept. Putting something into an anvil or crafting grid and taking it back doesn't count.
+- Picked up from the ground: **20 seconds**.
+- From chests, crafting, furnaces, trades, `/give` and so on: **30 seconds**. For chests and other blocks with a menu, the card appears when you close the menu, and only for what you actually kept. Putting something into an anvil or crafting grid and taking it back doesn't count.
 
 - Works with **every language Minecraft has** (~130). The words come from Minecraft's own translation files.
 - **Russian, Chinese and Japanese** (and any other non-Latin script) show the pronunciation under the word: *Алмазный меч → Almaznyy mech*, *钻石剑 → zuàn shí jiàn*, *ダイヤモンドの剣 → daiyamondo no ken*.
 - Offline speech recognition (Vosk). The free model for your language downloads once the first time (40–130 MB). Nothing is sent online after that.
 - Languages with no speech model use a typing fallback: type the word (or its romanization) in chat.
+- The card shows a **tip** for the tricky sounds in the word (Russian ы/щ/ж, Chinese tones, Japanese long vowels…), and after a wrong try it tells you what went wrong, e.g. *you said "о" (o) where it should be "а" (a)*.
 - While you speak, the pronunciation line turns **green** for the letters you got right and **red** for the ones you missed. What it heard is shown in Latin letters.
 - Once you say a word correctly, it's **unlocked** and never asked again. Failed words show `NEVER LEARNED (0/x)`.
 
@@ -23,14 +24,14 @@ gradlew.bat build        (Windows)
 ./gradlew build          (Mac/Linux)
 ```
 
-The first build downloads Gradle, Minecraft and Fabric, so it takes a few minutes. The mod ends up at `build/libs/langlearn-0.4.0.jar`.
+The first build downloads Gradle, Minecraft and Fabric, so it takes a few minutes. The mod ends up at `build/libs/langlearn-0.5.0.jar`.
 
 **No JDK?** Push this folder to a GitHub repo. The included GitHub Action builds it automatically, and the jar appears under *Actions → latest run → Artifacts*.
 
 ## 2. Install
 
 1. Install **Fabric Loader 0.20.1+** for Minecraft **26.3**.
-2. Put `langlearn-0.4.0.jar` and **Fabric API** (0.165.0+26.3 or newer) in `.minecraft/mods`.
+2. Put `langlearn-0.5.0.jar` and **Fabric API** (0.165.0+26.3 or newer) in `.minecraft/mods`.
 3. Singleplayer works out of the box. For multiplayer, the server also needs the mod, because the server is what deletes the items.
 
 ## 3. Play
@@ -41,9 +42,11 @@ The first build downloads Gradle, Minecraft and Fabric, so it takes a few minute
 | `/langlearn languages` | List every language; `[voice]` means you can speak it |
 | `/langlearn` | Status: language, words unlocked, speech model state |
 | `/langlearn test` | Practice the item in your hand (nothing gets deleted) |
-| `/langlearn timer pickup 10` | Seconds to answer for ground pickups (3–60) |
-| `/langlearn timer other 20` | Seconds to answer for chests, crafting and everything else (3–60) |
-| `/langlearn threshold 80` | How accurate you must be, in % (default 80) |
+| `/langlearn timer pickup 20` | Seconds to answer for ground pickups (3–60) |
+| `/langlearn timer other 30` | Seconds to answer for chests, crafting and everything else (3–60) |
+| `/langlearn strictness easy\|normal\|hard` | normal (default): words that sound almost the same compete with the right one, so палка said as "полка" doesn't count. easy: close enough counts. hard: even more sound-alikes and it must be said clearly |
+| `/langlearn hints true\|false` | Pronunciation tips on the card (on by default) |
+| `/langlearn threshold 80` | For typed answers and languages without the item-name recognizer: how accurate you must be, in % |
 | `/langlearn mode auto\|typing\|both` | auto = voice if available, otherwise typing |
 | `/langlearn grammar true\|false` | On by default: a second recognizer that can only answer with Minecraft item names, so it hears real words instead of gibberish |
 | `/langlearn on` / `off` | Pause the mod (your items are safe while it's off) |
