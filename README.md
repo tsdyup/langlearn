@@ -24,14 +24,14 @@ gradlew.bat build        (Windows)
 ./gradlew build          (Mac/Linux)
 ```
 
-The first build downloads Gradle, Minecraft and Fabric, so it takes a few minutes. The mod ends up at `build/libs/langlearn-0.5.0.jar`.
+The first build downloads Gradle, Minecraft and Fabric, so it takes a few minutes. The mod ends up at `build/libs/langlearn-0.5.1.jar`.
 
 **No JDK?** Push this folder to a GitHub repo. The included GitHub Action builds it automatically, and the jar appears under *Actions → latest run → Artifacts*.
 
 ## 2. Install
 
 1. Install **Fabric Loader 0.20.1+** for Minecraft **26.3**.
-2. Put `langlearn-0.5.0.jar` and **Fabric API** (0.165.0+26.3 or newer) in `.minecraft/mods`.
+2. Put `langlearn-0.5.1.jar` and **Fabric API** (0.165.0+26.3 or newer) in `.minecraft/mods`.
 3. Singleplayer works out of the box. For multiplayer, the server also needs the mod, because the server is what deletes the items.
 
 ## 3. Play
